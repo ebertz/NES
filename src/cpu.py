@@ -1,3 +1,6 @@
+# CPU architecture references :
+# http://www.obelisk.me.uk/6502/reference.html
+# http://www.6502.org/tutorials/6502opcodes.html
 class CPU:
 
     def __init__(self):
@@ -5,6 +8,24 @@ class CPU:
         self.memory = None
         self.clock = None
 
+        self.statusFlags = {
+            'C': 0,  # carry
+            'Z': 0,  # zero
+            'I': 0,  # interrupt disable
+            'D': 0,  # decimal mode
+            'B': 0,  # break
+            'v': 0,  # overflow
+            'N': 0  # negative
+        }
+
+        self.registers = {
+            'A': 0,  # accumulator
+            'X': 0,  # index reg X
+            'Y': 0,  # index reg X
+            'P': 0,  # processor status
+            'SP': 0,  # stack pointer
+            'PC': 0  # program counter
+        }
         #instructions stored in form [{operation}, {addressing mode}, {clock cycles}]
         self.instructions = {
             0x00: [self.brk, self.address_none, 7],
@@ -83,108 +104,90 @@ class CPU:
             0x7d: [self.adc, self.address_absolute_x, 4],
             0x7e: [self.ror, self.address_absolute_x, 7],
 
-            0x81: [],
-            0x84: [],
-            0x85: [],
-            0x86: [],
-            0x88: [],
-            0x8a: [],
-            0x8c: [],
-            0x8d: [],
-            0x8e: [],
-            0x90: [],
-            0x91: [],
-            0x94: [],
-            0x95: [],
-            0x96: [],
-            0x98: [],
-            0x99: [],
-            0x9a: [],
-            0x9d: [],
+            0x81: [self.sta, self.address_indirect_x, 6],
+            0x84: [self.sty, self.address_zero_page, 3],
+            0x85: [self.sta, self.address_zero_page, 3],
+            0x86: [self. stx, self.address_zero_page, 3],
+            0x88: [self.dey, self.address_none, 2],
+            0x8a: [self.txa, self.address_none, 2],
+            0x8c: [self.sty, self.address_absolute, 4],
+            0x8d: [self.sta, self.address_absolute, 4],
+            0x8e: [self.stx, self.address_absolute, 4],
+            0x90: [self.bcc, self.address_relative, 2],
+            0x91: [self.sta, self.address_indirect_y, 6],
+            0x94: [self.sty, self.address_zero_page_x, 4],
+            0x95: [self.sta, self.address_zero_page_x, 4],
+            0x96: [self.stx, self.address_zero_page_y, 4],
+            0x98: [self.tya, self.address_none, 2],
+            0x99: [self.sta, self.address_absolute_y, 5],
+            0x9a: [self.txs, self.address_none, 2],
+            0x9d: [self.sta, self.address_absolute_x, 5],
 
-            0xa0: [],
-            0xa1: [],
-            0xa2: [],
-            0xa4: [],
-            0xa5: [],
-            0xa6: [],
-            0xa8: [],
-            0xa9: [],
-            0xaa: [],
-            0xac: [],
-            0xad: [],
-            0xae: [],
-            0xb0: [],
-            0xb1: [],
-            0xb4: [],
-            0xb5: [],
-            0xb6: [],
-            0xb8: [],
-            0xb9: [],
-            0xba: [],
-            0xbc: [],
-            0xbd: [],
-            0xbe: [],
+            0xa0: [self.ldy, self.address_immediate, 2],
+            0xa1: [self.lda, self.address_indirect_x, 6],
+            0xa2: [self.ldx, self.address_immediate, 2],
+            0xa4: [self.ldy, self.address_zero_page, 3],
+            0xa5: [self.lda, self.address_zero_page, 3],
+            0xa6: [self.ldx, self.address_zero_page, 3],
+            0xa8: [self.tay, self.address_none, 2],
+            0xa9: [self.lda, self.address_immediate, 2],
+            0xaa: [self.tax, self.address_none, 2],
+            0xac: [self.ldy, self.address_absolute, 4],
+            0xad: [self.lda, self.address_absolute, 4],
+            0xae: [self.ldx, self.address_absolute, 4],
+            0xb0: [self.bcs, self.address_relative, 2],
+            0xb1: [self.lda, self.address_indirect_y, 5],
+            0xb4: [self.ldy, self.address_zero_page_x, 4],
+            0xb5: [self.lda, self.address_zero_page_x, 4],
+            0xb6: [self.ldx, self.address_zero_page_y, 4],
+            0xb8: [self.clv, self.address_none, 2],
+            0xb9: [self.lda, self.address_absolute_y, 4],
+            0xba: [self.tsx, self.address_none, 2],
+            0xbc: [self.ldy, self.address_absolute_x, 4],
+            0xbd: [self.lda, self.address_absolute_x, 4],
+            0xbe: [self.ldx, self.address_absolute_y, 4],
 
-            0xc0: [],
-            0xc1: [],
-            0xc4: [],
-            0xc5: [],
-            0xc6: [],
-            0xc8: [],
-            0xc9: [],
-            0xca: [],
-            0xcc: [],
-            0xcd: [],
-            0xce: [],
-            0xd0: [],
-            0xd1: [],
-            0xd5: [],
-            0xd6: [],
-            0xd8: [],
-            0xd9: [],
-            0xdd: [],
-            0xde: [],
+            0xc0: [self.cpy, self.address_immediate, 2],
+            0xc1: [self.cmp, self.address_indirect_x, 6],
+            0xc4: [self.cpy, self.address_zero_page, 3],
+            0xc5: [self.cmp, self.address_zero_page, 3],
+            0xc6: [self.dec, self.address_zero_page, 5],
+            0xc8: [self.iny, self.address_none, 2],
+            0xc9: [self.cmp, self.address_immediate, 2],
+            0xca: [self.dex, self.address_none, 2],
+            0xcc: [self.cpy, self.address_absolute, 4],
+            0xcd: [self.cmp, self.address_absolute, 4],
+            0xce: [self.dec, self.address_absolute, 6],
+            0xd0: [self.bne, self.address_relative, 2],
+            0xd1: [self.cmp, self.address_indirect_y, 5],
+            0xd5: [self.cmp, self.address_zero_page_x, 4],
+            0xd6: [self.dec, self.address_zero_page_x, 6],
+            0xd8: [self.cld, self.address_none, 2],
+            0xd9: [self.cmp, self.address_absolute_y, 4],
+            0xdd: [self.cmp, self.address_absolute_x, 4],
+            0xde: [self.dec, self.address_absolute_x, 7],
 
-            0xe0: [],
-            0xe1: [],
-            0xe4: [],
-            0xe5: [],
-            0xe6: [],
-            0xe8: [],
-            0xe9: [],
-            0xea: [],
-            0xec: [],
-            0xed: [],
-            0xee: [],
-            0xf0: [],
-            0xf1: [],
-            0xf5: [],
-            0xf6: [],
-            0xf8: [],
-            0xf9: [],
-            0xfd: [],
-            0xfe: [],
+            0xe0: [self.cpx, self.address_immediate, 2],
+            0xe1: [self.sbc, self.address_indirect_x, 6],
+            0xe4: [self.cpx, self.address_zero_page, 3],
+            0xe5: [self.sbc, self.address_zero_page, 3],
+            0xe6: [self.inc, self.address_zero_page, 5],
+            0xe8: [self.inx, self.address_none, 2],
+            0xe9: [self.sbc, self.address_immediate, 2],
+            0xea: [self.nop, self.address_none, 2],
+            0xec: [self.cpx, self.address_absolute, 4],
+            0xed: [self.sbc, self.address_absolute, 4],
+            0xee: [self.inc, self.address_absolute, 6],
+            0xf0: [self.beq, self.address_relative, 2],
+            0xf1: [self.sbc, self.address_indirect_y, 5],
+            0xf5: [self.sbc, self.address_zero_page_x, 4],
+            0xf6: [self.inc, self.address_zero_page_x, 6],
+            0xf8: [self.sed, seld.address_none, 2],
+            0xf9: [self.sbc, self.address_absolute_y, 4],
+            0xfd: [self.sbc, self.address_absolute_x, 4],
+            0xfe: [self.inc, self.address_absolute_x, 7],
         }
 
-        self.statusFlags = {
-            'C': 0,  # carry
-            'Z': 0,  # zero
-            'I': 0,  # interrupt disable
-            'D': 0,  # decimal mode
-            'B': 0,  # break
-            'v': 0,  # overflow
-            'N': 0  # negative
-        }
-
-        self.registers = {
-            'A': 0,  # accumulator
-            'X': 0,  # index reg X
-            'Y': 0,  # index reg X
-            'P': 0,  # processor status
-            'SP': 0,  # stack pointer
-            'PC': 0  # program counter
-        }
     def execute(self, instruction, addressingMode, cycles):
         # fetch operands based on addressing mode
         # execute instruction
@@ -218,6 +221,9 @@ class CPU:
         pass
 
     def address_zero_page_x(self):
+        pass
+
+    def address_zero_page_y(self):
         pass
 
     def address_absolute(self):
