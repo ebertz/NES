@@ -72,10 +72,55 @@ class InstructionTests(unittest.TestCase):
 	def test_address_relative(self):
 		assert self.cpu.address_relative(0x10) == 0x10	
 
-	def test_0x00(self):
-		self.cpu.execute(*self.cpu.instructions[0x00])
-		assert True
+	#adc
+	def test_adc_immediate(self): #0x69
+		self.cpu.A = 0xFF
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 1)
+		self.cpu.execute(*self.cpu.instructions[0x69])
+		assert self.cpu.A == 0x00
+		assert self.cpu.C == 1
+		assert self.cpu.N == 0
+		assert self.cpu.Z == 1
+		assert self.cpu.PC == 0x1002
 
+	def test_adc_zero_page(self): #0x65
+		self.cpu.A = 0xFF
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.memory.write(0x0010, 0x1)
+		self.cpu.execute(*self.cpu.instructions[0x65])
+		assert self.cpu.A == 0x00
+		assert self.cpu.C == 1
+		assert self.cpu.N == 0
+		assert self.cpu.Z == 1
+		assert self.cpu.PC == 0x1002		
+
+	def test_adc_zero_page_x(self): #0x65
+		self.cpu.A = 0xFF
+		self.cpu.X = 0x05
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.memory.write(0x0015, 0x1)
+		self.cpu.execute(*self.cpu.instructions[0x75])
+		assert self.cpu.A == 0x00
+		assert self.cpu.C == 1
+		assert self.cpu.N == 0
+		assert self.cpu.Z == 1
+		assert self.cpu.PC == 0x1002
+
+	def test_adc_absolute(self): #0x65
+		self.cpu.A = 0xFF
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x00)
+		self.cpu.memory.write(0x1002, 0x20)
+		self.cpu.memory.write(0x2000, 0x1)
+		self.cpu.execute(*self.cpu.instructions[0x6d])
+		assert self.cpu.A == 0x00
+		assert self.cpu.C == 1
+		assert self.cpu.N == 0
+		assert self.cpu.Z == 1
+		assert self.cpu.PC == 0x1003
 
 if __name__ == '__main__':
 	unittest.main()
