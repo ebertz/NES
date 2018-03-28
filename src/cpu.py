@@ -189,8 +189,26 @@ class CPU:
             0xfe: [self.inc, self.address_absolute_x, 3, 7],
         }
 
-    def getRegister(name):
-        return self.registers[name]
+    def setCarry(self, value):
+        self.C = 1 if value > 0xFF else 0
+
+    def setZero(self,value):
+        self.Z = 1 if value & 0xFF == 0 else 0
+
+    def setNegative(self, value):
+        self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
+
+    def setInterruptDisable(self, condition):
+        self.I = 1 if condition else 0
+
+    def setDecimalMode(self, condition):
+        self.D = 1 if condition else 0
+
+    def setBreakCommand(self, condition):
+        self.B = 1 if condition else 0
+
+    def setOverflow(self, condition):
+        self.V = 1 if condition else 0
 
     def execute(self, instruction, addressingMode, size, cycles):
         address = None
@@ -199,18 +217,11 @@ class CPU:
         if size == 3 :
             address = self.memory.read(self.PC + 1) + (self.memory.read(self.PC + 2) << 8)
 
-        data = addressingMode(addr)
+        data = addressingMode(address)
         instruction(data)
 
         print('burned ' + str(cycles) + ' cycles\n')
-        self.registers['PC'] += size
-
-    def step(self):
-        # fetch instruction from address in PC
-        # look up opcode in instruciton table
-        # execute() instruction
-        # increment PC
-        pass
+        self.PC += size
 
     ###
     # ADDRESSING MODES http://nesdev.com/NESDoc.pdf Appendix E (p39)
@@ -257,24 +268,39 @@ class CPU:
         return self.memory.read(a)
 
     def address_indirect_y(self, addr):
-        a = self.memory.read(addr + self.X) + (self.memory.read(addr + self.X + 1) << 8)
+        a = self.memory.read(addr + self.Y) + (self.memory.read(addr + self.Y + 1) << 8)
         return self.memory.read(a)
 
     ###
     # OPERATIONS http://www.obelisk.me.uk/6502/reference.html
     ###
 
-    # add with carry
-    def adc(self):
-        pass
+    # add with carry [A,Z,C,N = A+M+C]
+    def adc(self, data):
+        result = data + self.A + self.C
+        self.A = result & 0xFF
+        self.setOverflow(self.A != result)
+        self.setCarry(result)
+        self.setNegative(result)
+        self.setZero(result)
 
-    # logical and
-    def _and(self):
-        pass
+        return result
 
-    # arithmetic left shift
-    def asl(self):
-        pass
+    # logical and [A,Z,N = A&M]
+    def _and(self, data):
+        result = data & self.A
+        self.setZero(result)
+        self.setNegative(result)
+        self.A = result
+        return result
+
+    # arithmetic left shift [A,Z,C,N = M*2, M,Z,C,N = M*2]
+    def asl(self, data):
+        result = data << 1;
+        self.setCarry(result)
+        self.setZero(result)
+        self.setNegative(result)
+        return result
 
     # branch if carry clear
     def bcc(self):
@@ -306,7 +332,7 @@ class CPU:
 
     # force interrupt
     def brk(self):
-        self.registers['A'] = 5
+        self.A = 5
 
     # branch if overflow clear
     def bvc(self):
