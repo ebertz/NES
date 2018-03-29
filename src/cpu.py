@@ -2,6 +2,7 @@
 # http://www.obelisk.me.uk/6502/reference.html
 # http://www.6502.org/tutorials/6502opcodes.html
 import memory
+import addressing
 
 class CPU:
 
@@ -27,166 +28,179 @@ class CPU:
         self.SP = 0
         self.PC = 0
 
+        self.implied = addressing.Implied(self)
+        self.accumulator = addressing.Accumulator(self)
+        self.immediate = addressing.Immediate(self)
+        self.zeroPage = addressing.ZeroPage(self)
+        self.zeroPageX = addressing.ZeroPageX(self)
+        self.zeroPageY = addressing.ZeroPageY(self)
+        self.relative = addressing.Relative(self)
+        self.absolute = addressing.Absolute(self)
+        self.absoluteX = addressing.AbsoluteX(self)
+        self.absoluteY = addressing.AbsoluteY(self)
+        self.indirect = addressing.Indirect(self)
+        self.indirectX = addressing.IndirectX(self)
+        self.indirectY = addressing.IndirectY(self)
         #instructions stored in form [{operation}, {addressing mode}, {size}, {clock cycles}]
         self.instructions = {
-            0x00: [self.brk, self.address_none, 1, 7],
-            0x01: [self.ora, self.address_indirect_x, 2, 6],
-            0x05: [self.ora, self.address_zero_page, 2, 3],
-            0x06: [self.asl, self.address_zero_page, 2, 3],
-            0x08: [self.php, self.address_none, 1, 3],
-            0x09: [self.ora, self.address_immediate, 2, 2],
-            0x0a: [self.asl, self.address_accumulator, 1, 2],
-            0x0d: [self.ora, self.address_absolute, 3, 4],
-            0x0e: [self.asl, self.address_absolute, 3, 6],
-            0x10: [self.bpl, self.address_relative, 2, 2],
-            0x11: [self.ora, self.address_indirect_y, 2, 5],
-            0x15: [self.ora, self.address_zero_page_x, 2, 4],
-            0x16: [self.asl, self.address_zero_page_x, 2, 6],
-            0x18: [self.clc, self.address_none, 1, 2],
-            0x19: [self.ora, self.address_absolute_y, 3, 4],
-            0x1d: [self.ora, self.address_absolute_x, 3, 4],
-            0x1e: [self.asl, self.address_absolute_x, 3, 7],
+            0x00: [self.brk, self.implied, 7],
+            0x01: [self.ora, self.indirectX, 6],
+            0x05: [self.ora, self.zeroPage, 3],
+            0x06: [self.asl, self.zeroPage, 3],
+            0x08: [self.php, self.implied, 3],
+            0x09: [self.ora, self.immediate, 2],
+            0x0a: [self.asl, self.accumulator, 2],
+            0x0d: [self.ora, self.absolute, 4],
+            0x0e: [self.asl, self.absolute, 6],
+            0x10: [self.bpl, self.relative, 2],
+            0x11: [self.ora, self.indirectY, 5],
+            0x15: [self.ora, self.zeroPageX, 4],
+            0x16: [self.asl, self.zeroPageX, 6],
+            0x18: [self.clc, self.implied, 2],
+            0x19: [self.ora, self.absoluteY, 4],
+            0x1d: [self.ora, self.absoluteX, 4],
+            0x1e: [self.asl, self.absoluteX, 7],
 
-            0x20: [self.jsr, self.address_jump_absolute, 3, 6],
-            0x21: [self._and, self.address_indirect_x, 2, 6],
-            0x24: [self.bit, self.address_zero_page, 2, 3],
-            0x25: [self._and, self.address_zero_page, 2, 3],
-            0x26: [self.rol, self.address_zero_page, 2, 5],
-            0x28: [self.plp, self.address_none, 1, 4],
-            0x29: [self._and, self.address_immediate, 2, 2],
-            0x2a: [self.rol, self.address_accumulator, 1, 2],
-            0x2c: [self.bit, self.address_absolute, 3, 4],
-            0x2d: [self._and, self.address_absolute, 3, 4],
-            0x2e: [self.rol, self.address_absolute, 3, 6],
-            0x30: [self.bmi, self.address_relative, 2, 2],
-            0x31: [self._and, self.address_indirect_y, 2, 5],
-            0x35: [self._and, self.address_zero_page_x, 2, 6],
-            0x36: [self.rol, self.address_zero_page_x, 2, 6],
-            0x38: [self.sec, self.address_none, 1, 2],
-            0x39: [self._and, self.address_absolute_y, 3, 4],
-            0x3d: [self._and, self.address_absolute_x, 3, 4],
-            0x3e: [self.rol, self.address_absolute_x, 3, 7],
+            0x20: [self.jsr, self.absolute, 6],
+            0x21: [self._and, self.indirectX, 6],
+            0x24: [self.bit, self.zeroPage, 3],
+            0x25: [self._and, self.zeroPage, 3],
+            0x26: [self.rol, self.zeroPage, 5],
+            0x28: [self.plp, self.implied, 4],
+            0x29: [self._and, self.immediate, 2],
+            0x2a: [self.rol, self.accumulator, 2],
+            0x2c: [self.bit, self.absolute, 4],
+            0x2d: [self._and, self.absolute, 4],
+            0x2e: [self.rol, self.absolute, 6],
+            0x30: [self.bmi, self.relative, 2],
+            0x31: [self._and, self.indirectY, 5],
+            0x35: [self._and, self.zeroPageX, 6],
+            0x36: [self.rol, self.zeroPageX, 6],
+            0x38: [self.sec, self.implied, 2],
+            0x39: [self._and, self.absoluteY, 4],
+            0x3d: [self._and, self.absoluteX, 4],
+            0x3e: [self.rol, self.absoluteX, 7],
 
-            0x40: [self.rti, self.address_none, 1, 6],
-            0x41: [self.eor, self.address_indirect_x, 2, 6],
-            0x45: [self.eor, self.address_zero_page, 2, 2],
-            0x46: [self.lsr, self.address_zero_page, 2, 5],
-            0x48: [self.pha, self.address_none, 1, 3],
-            0x49: [self.eor, self.address_immediate, 2, 2],
-            0x4a: [self.lsr, self.address_accumulator, 1, 2],
-            0x4c: [self.jmp, self.address_jump_absolute, 3, 3], #check pc_inc
-            0x4d: [self.eor, self.address_absolute, 3, 4],
-            0x4e: [self.lsr, self.address_absolute, 3, 6],
-            0x50: [self.bvc, self.address_relative, 2, 2],
-            0x51: [self.eor, self.address_indirect_y, 2, 5],
-            0x55: [self.eor, self.address_zero_page_x, 2, 4],
-            0x56: [self.lsr, self.address_zero_page_x, 2, 6],
-            0x58: [self.cli, self.address_none, 1, 2],
-            0x59: [self.eor, self.address_absolute_y, 3, 4],
-            0x5d: [self.eor, self.address_absolute_x, 3, 4],
-            0x5e: [self.lsr, self.address_absolute_x, 3, 7],
+            0x40: [self.rti, self.implied, 6],
+            0x41: [self.eor, self.indirectX, 6],
+            0x45: [self.eor, self.zeroPage, 2],
+            0x46: [self.lsr, self.zeroPage, 5],
+            0x48: [self.pha, self.implied, 3],
+            0x49: [self.eor, self.immediate, 2],
+            0x4a: [self.lsr, self.accumulator, 2],
+            0x4c: [self.jmp, self.absolute, 3], #check pc_inc
+            0x4d: [self.eor, self.absolute, 4],
+            0x4e: [self.lsr, self.absolute, 6],
+            0x50: [self.bvc, self.relative, 2],
+            0x51: [self.eor, self.indirectY, 5],
+            0x55: [self.eor, self.zeroPageX, 4],
+            0x56: [self.lsr, self.zeroPageX, 6],
+            0x58: [self.cli, self.implied, 2],
+            0x59: [self.eor, self.absoluteY, 4],
+            0x5d: [self.eor, self.absoluteX, 4],
+            0x5e: [self.lsr, self.absoluteX, 7],
 
-            0x60: [self.rts, self.address_none, 1, 6],
-            0x61: [self.adc, self.address_indirect_x, 2, 6],
-            0x65: [self.adc, self.address_zero_page, 2, 3],
-            0x66: [self.ror, self.address_zero_page, 2, 5],
-            0x68: [self.pla, self.address_none, 1, 4],
-            0x69: [self.adc, self.address_immediate, 2, 2],
-            0x6a: [self.ror, self.address_accumulator, 1, 2],
-            0x6c: [self.jmp, self.address_indirect, 3, 5],
-            0x6d: [self.adc, self.address_absolute, 3, 4],
-            0x6e: [self.ror, self.address_absolute, 3, 6],
-            0x70: [self.bvs, self.address_relative, 2, 2],
-            0x71: [self.adc, self.address_indirect_y, 2, 5],
-            0x75: [self.adc, self.address_zero_page_x, 2, 4],
-            0x76: [self.ror, self.address_zero_page_x, 2, 6],
-            0x78: [self.sei, self.address_none, 1, 2],
-            0x79: [self.adc, self.address_absolute_y, 3, 4],
-            0x7d: [self.adc, self.address_absolute_x, 3, 4],
-            0x7e: [self.ror, self.address_absolute_x, 3, 7],
+            0x60: [self.rts, self.implied, 6],
+            0x61: [self.adc, self.indirectX, 6],
+            0x65: [self.adc, self.zeroPage, 3],
+            0x66: [self.ror, self.zeroPage, 5],
+            0x68: [self.pla, self.implied, 4],
+            0x69: [self.adc, self.immediate, 2],
+            0x6a: [self.ror, self.accumulator, 2],
+            0x6c: [self.jmp, self.indirect, 5],
+            0x6d: [self.adc, self.absolute, 4],
+            0x6e: [self.ror, self.absolute, 6],
+            0x70: [self.bvs, self.relative, 2],
+            0x71: [self.adc, self.indirectY, 5],
+            0x75: [self.adc, self.zeroPageX, 4],
+            0x76: [self.ror, self.zeroPageX, 6],
+            0x78: [self.sei, self.implied, 2],
+            0x79: [self.adc, self.absoluteY, 4],
+            0x7d: [self.adc, self.absoluteX, 4],
+            0x7e: [self.ror, self.absoluteX, 7],
 
-            0x81: [self.sta, self.address_indirect_x, 2, 6],
-            0x84: [self.sty, self.address_zero_page, 2, 3],
-            0x85: [self.sta, self.address_zero_page, 2, 3],
-            0x86: [self. stx, self.address_zero_page, 2, 3],
-            0x88: [self.dey, self.address_none, 1, 2],
-            0x8a: [self.txa, self.address_none, 1, 2],
-            0x8c: [self.sty, self.address_absolute, 3, 4],
-            0x8d: [self.sta, self.address_absolute, 3, 4],
-            0x8e: [self.stx, self.address_absolute, 3, 4],
-            0x90: [self.bcc, self.address_relative, 2, 2],
-            0x91: [self.sta, self.address_indirect_y, 2, 6],
-            0x94: [self.sty, self.address_zero_page_x, 2, 4],
-            0x95: [self.sta, self.address_zero_page_x, 2, 4],
-            0x96: [self.stx, self.address_zero_page_y, 2, 4],
-            0x98: [self.tya, self.address_none, 1, 2],
-            0x99: [self.sta, self.address_absolute_y, 3, 5],
-            0x9a: [self.txs, self.address_none, 1, 2],
-            0x9d: [self.sta, self.address_absolute_x, 3, 5],
+            0x81: [self.sta, self.indirectX, 6],
+            0x84: [self.sty, self.zeroPage, 3],
+            0x85: [self.sta, self.zeroPage, 3],
+            0x86: [self. stx, self.zeroPage, 3],
+            0x88: [self.dey, self.implied, 2],
+            0x8a: [self.txa, self.implied, 2],
+            0x8c: [self.sty, self.absolute, 4],
+            0x8d: [self.sta, self.absolute, 4],
+            0x8e: [self.stx, self.absolute, 4],
+            0x90: [self.bcc, self.relative, 2],
+            0x91: [self.sta, self.indirectY, 6],
+            0x94: [self.sty, self.zeroPageX, 4],
+            0x95: [self.sta, self.zeroPageX, 4],
+            0x96: [self.stx, self.zeroPageY, 4],
+            0x98: [self.tya, self.implied, 2],
+            0x99: [self.sta, self.absoluteY, 5],
+            0x9a: [self.txs, self.implied, 2],
+            0x9d: [self.sta, self.absoluteX, 5],
 
-            0xa0: [self.ldy, self.address_immediate, 2, 2],
-            0xa1: [self.lda, self.address_indirect_x, 2, 6],
-            0xa2: [self.ldx, self.address_immediate, 2, 2],
-            0xa4: [self.ldy, self.address_zero_page, 2, 3],
-            0xa5: [self.lda, self.address_zero_page, 2, 3],
-            0xa6: [self.ldx, self.address_zero_page, 2, 3],
-            0xa8: [self.tay, self.address_none, 1, 2],
-            0xa9: [self.lda, self.address_immediate, 2, 2],
-            0xaa: [self.tax, self.address_none, 1, 2],
-            0xac: [self.ldy, self.address_absolute, 3, 4],
-            0xad: [self.lda, self.address_absolute, 3, 4],
-            0xae: [self.ldx, self.address_absolute, 3, 4],
-            0xb0: [self.bcs, self.address_relative, 2, 2],
-            0xb1: [self.lda, self.address_indirect_y, 2, 5],
-            0xb4: [self.ldy, self.address_zero_page_x, 2, 4],
-            0xb5: [self.lda, self.address_zero_page_x, 2, 4],
-            0xb6: [self.ldx, self.address_zero_page_y, 2, 4],
-            0xb8: [self.clv, self.address_none, 1, 2],
-            0xb9: [self.lda, self.address_absolute_y, 3, 4],
-            0xba: [self.tsx, self.address_none, 1, 2],
-            0xbc: [self.ldy, self.address_absolute_x, 3, 4],
-            0xbd: [self.lda, self.address_absolute_x, 3, 4],
-            0xbe: [self.ldx, self.address_absolute_y, 3, 4],
+            0xa0: [self.ldy, self.immediate, 2],
+            0xa1: [self.lda, self.indirectX, 6],
+            0xa2: [self.ldx, self.immediate, 2],
+            0xa4: [self.ldy, self.zeroPage, 3],
+            0xa5: [self.lda, self.zeroPage, 3],
+            0xa6: [self.ldx, self.zeroPage, 3],
+            0xa8: [self.tay, self.implied, 2],
+            0xa9: [self.lda, self.immediate, 2],
+            0xaa: [self.tax, self.implied, 2],
+            0xac: [self.ldy, self.absolute, 4],
+            0xad: [self.lda, self.absolute, 4],
+            0xae: [self.ldx, self.absolute, 4],
+            0xb0: [self.bcs, self.relative, 2],
+            0xb1: [self.lda, self.indirectY, 5],
+            0xb4: [self.ldy, self.zeroPageX, 4],
+            0xb5: [self.lda, self.zeroPageX, 4],
+            0xb6: [self.ldx, self.zeroPageY, 4],
+            0xb8: [self.clv, self.implied, 2],
+            0xb9: [self.lda, self.absoluteY, 4],
+            0xba: [self.tsx, self.implied, 2],
+            0xbc: [self.ldy, self.absoluteX, 4],
+            0xbd: [self.lda, self.absoluteX, 4],
+            0xbe: [self.ldx, self.absoluteY, 4],
 
-            0xc0: [self.cpy, self.address_immediate, 2, 2],
-            0xc1: [self.cmp, self.address_indirect_x, 2, 6],
-            0xc4: [self.cpy, self.address_zero_page, 2, 3],
-            0xc5: [self.cmp, self.address_zero_page, 2, 3],
-            0xc6: [self.dec, self.address_zero_page, 2, 5],
-            0xc8: [self.iny, self.address_none, 1, 2],
-            0xc9: [self.cmp, self.address_immediate, 2, 2],
-            0xca: [self.dex, self.address_none, 1, 2],
-            0xcc: [self.cpy, self.address_absolute, 3, 4],
-            0xcd: [self.cmp, self.address_absolute, 3, 4],
-            0xce: [self.dec, self.address_absolute, 3, 6],
-            0xd0: [self.bne, self.address_relative, 2, 2],
-            0xd1: [self.cmp, self.address_indirect_y, 2, 5],
-            0xd5: [self.cmp, self.address_zero_page_x, 2, 4],
-            0xd6: [self.dec, self.address_zero_page_x, 2, 6],
-            0xd8: [self.cld, self.address_none, 1, 2],
-            0xd9: [self.cmp, self.address_absolute_y, 3, 4],
-            0xdd: [self.cmp, self.address_absolute_x, 3, 4],
-            0xde: [self.dec, self.address_absolute_x, 3, 7],
+            0xc0: [self.cpy, self.immediate, 2],
+            0xc1: [self.cmp, self.indirectX, 6],
+            0xc4: [self.cpy, self.zeroPage, 3],
+            0xc5: [self.cmp, self.zeroPage, 3],
+            0xc6: [self.dec, self.zeroPage, 5],
+            0xc8: [self.iny, self.implied, 2],
+            0xc9: [self.cmp, self.immediate, 2],
+            0xca: [self.dex, self.implied, 2],
+            0xcc: [self.cpy, self.absolute, 4],
+            0xcd: [self.cmp, self.absolute, 4],
+            0xce: [self.dec, self.absolute, 6],
+            0xd0: [self.bne, self.relative, 2],
+            0xd1: [self.cmp, self.indirectY, 5],
+            0xd5: [self.cmp, self.zeroPageX, 4],
+            0xd6: [self.dec, self.zeroPageX, 6],
+            0xd8: [self.cld, self.implied, 2],
+            0xd9: [self.cmp, self.absoluteY, 4],
+            0xdd: [self.cmp, self.absoluteX, 4],
+            0xde: [self.dec, self.absoluteX, 7],
 
-            0xe0: [self.cpx, self.address_immediate, 2, 2],
-            0xe1: [self.sbc, self.address_indirect_x, 2, 6],
-            0xe4: [self.cpx, self.address_zero_page, 2, 3],
-            0xe5: [self.sbc, self.address_zero_page, 2, 3],
-            0xe6: [self.inc, self.address_zero_page, 2, 5],
-            0xe8: [self.inx, self.address_none, 1, 2],
-            0xe9: [self.sbc, self.address_immediate, 2, 2],
-            0xea: [self.nop, self.address_none, 1, 2],
-            0xec: [self.cpx, self.address_absolute, 3, 4],
-            0xed: [self.sbc, self.address_absolute, 3, 4],
-            0xee: [self.inc, self.address_absolute, 3, 6],
-            0xf0: [self.beq, self.address_relative, 2, 2],
-            0xf1: [self.sbc, self.address_indirect_y, 2, 5],
-            0xf5: [self.sbc, self.address_zero_page_x, 2, 4],
-            0xf6: [self.inc, self.address_zero_page_x, 2, 6],
-            0xf8: [self.sed, self.address_none, 1, 2],
-            0xf9: [self.sbc, self.address_absolute_y, 3, 4],
-            0xfd: [self.sbc, self.address_absolute_x, 3, 4],
-            0xfe: [self.inc, self.address_absolute_x, 3, 7],
+            0xe0: [self.cpx, self.immediate, 2],
+            0xe1: [self.sbc, self.indirectX, 6],
+            0xe4: [self.cpx, self.zeroPage, 3],
+            0xe5: [self.sbc, self.zeroPage, 3],
+            0xe6: [self.inc, self.zeroPage, 5],
+            0xe8: [self.inx, self.implied, 2],
+            0xe9: [self.sbc, self.immediate, 2],
+            0xea: [self.nop, self.implied, 2],
+            0xec: [self.cpx, self.absolute, 4],
+            0xed: [self.sbc, self.absolute, 4],
+            0xee: [self.inc, self.absolute, 6],
+            0xf0: [self.beq, self.relative, 2],
+            0xf1: [self.sbc, self.indirectY, 5],
+            0xf5: [self.sbc, self.zeroPageX, 4],
+            0xf6: [self.inc, self.zeroPageX, 6],
+            0xf8: [self.sed, self.implied, 2],
+            0xf9: [self.sbc, self.absoluteY, 4],
+            0xfd: [self.sbc, self.absoluteX, 4],
+            0xfe: [self.inc, self.absoluteX, 7],
         }
 
     def setCarry(self, value):
@@ -210,109 +224,63 @@ class CPU:
     def setOverflow(self, condition):
         self.V = 1 if condition else 0
 
-    def execute(self, instruction, addressingMode, size, cycles):
-        address = None
-        if size == 2:
-            address = self.memory.read(self.PC + 1)
-        if size == 3 :
-            address = self.memory.read(self.PC + 1) + (self.memory.read(self.PC + 2) << 8)
+    def execute(self, instruction, addressingMode, cycles):
 
-        data = addressingMode(address)
-        instruction(data)
-
+        instruction(addressingMode)
         print('burned ' + str(cycles) + ' cycles\n')
-        self.PC += size
+        self.PC += addressingMode.size
 
-    ###
-    # ADDRESSING MODES http://nesdev.com/NESDoc.pdf Appendix E (p39)
-    ###
-
-    def address_none(self, addr):
-        return None
-
-    def address_accumulator(self, addr):
-        return self.A
-
-    def address_relative(self, addr):
-        return addr
-
-    def address_immediate(self, addr):
-        return addr
-
-    def address_zero_page(self, addr):
-        return self.memory.read(addr);
-
-    def address_zero_page_x(self, addr):
-        return self.memory.read(addr + self.X)
-
-    def address_zero_page_y(self, addr):
-        return self.memory.read(addr + self.Y)
-
-    def address_absolute(self, addr):
-        return self.memory.read(addr)
-
-    def address_absolute_x(self, addr):
-        return self.memory.read(addr + self.X)
-
-    def address_absolute_y(self, addr):
-        return self.memory.read(addr + self.Y)
-
-    def address_jump_absolute(self, addr):
-        pass #TODO: this
-
-    def address_indirect(self, addr):
-        return self.memory.read(self.memory.read(addr) + (self.memory.read(addr + 1) << 8))
-
-    def address_indirect_x(self, addr):
-        a = self.memory.read(addr + self.X) + (self.memory.read(addr + self.X + 1) << 8)
-        return self.memory.read(a)
-
-    def address_indirect_y(self, addr):
-        a = self.memory.read(addr + self.Y) + (self.memory.read(addr + self.Y + 1) << 8)
-        return self.memory.read(a)
-
-    ###
-    # OPERATIONS http://www.obelisk.me.uk/6502/reference.html
-    ###
+    # OPERATIONS 
+    # http://www.obelisk.me.uk/6502/reference.html
+    # http://www.6502.org/tutorials/6502opcodes.html
+    
 
     # add with carry [A,Z,C,N = A+M+C]
-    def adc(self, data):
-        result = data + self.A + self.C
+    def adc(self, mode):
+        result = mode.get() + self.A + self.C
         self.A = result & 0xFF
         self.setOverflow(self.A != result)
         self.setCarry(result)
         self.setNegative(result)
         self.setZero(result)
 
-        return result
-
     # logical and [A,Z,N = A&M]
-    def _and(self, data):
-        result = data & self.A
+    def _and(self, mode):
+        result = mode.get() & self.A
         self.setZero(result)
         self.setNegative(result)
         self.A = result
-        return result
 
     # arithmetic left shift [A,Z,C,N = M*2, M,Z,C,N = M*2]
-    def asl(self, data):
-        result = data << 1;
+    def asl(self, mode):
+        result = mode.get() << 1;
         self.setCarry(result)
         self.setZero(result)
         self.setNegative(result)
-        return result
 
     # branch if carry clear
-    def bcc(self):
-        pass
+    def bcc(self, mode):
+        if self.C:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # branch if carry set
     def bcs(self):
-        pass
+        if not self.C:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # branch if equal
     def beq(self):
-        pass
+        if not self.Z:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # bit test
     def bit(self):
@@ -320,15 +288,27 @@ class CPU:
 
     # branch if minus
     def bmi(self):
-        pass
+        if not self.N:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # branch not equal
     def bne(self):
-        pass
+        if self.Z:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # branch if positive
     def bpl(self):
-        pass
+        if self.N:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # force interrupt
     def brk(self):
@@ -336,11 +316,19 @@ class CPU:
 
     # branch if overflow clear
     def bvc(self):
-        pass
+        if self.V:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # branch if overflow set
     def bvs(self):
-        pass
+         if not self.V:
+            return
+        relAddr = mode.get()
+        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr + extraCycles
 
     # clear carry flag
     def clc(self):
