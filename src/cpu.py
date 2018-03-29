@@ -227,14 +227,12 @@ class CPU:
         self.Z = (value >> 1) & 1
         self.C = value & 1
 
+    def setZN(self, value):
+        self.Z = 1 if value & 0xFF == 0 else 0
+        self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
+
     def setCarry(self, value):
         self.C = 1 if value > 0xFF else 0
-
-    def setZero(self,value):
-        self.Z = 1 if value & 0xFF == 0 else 0
-
-    def setNegative(self, value):
-        self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
 
     def setCarryOnCondition(self, condition):
         self.C = 1 if condition else 0
@@ -272,22 +270,19 @@ class CPU:
         self.A = result & 0xFF
         self.setOverflowOnCondition(self.A != result)
         self.setCarry(result)
-        self.setNegative(result)
-        self.setZero(result)
+        self.setZN(result)
 
     # logical and [A,Z,N = A&M]
     def _and(self, mode):
         result = mode.get() & self.A
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         self.A = result
 
     # arithmetic left shift [A,Z,C,N = M*2],[M,Z,C,N = M*2]
     def asl(self, mode):
         result = mode.get() << 1;
         self.setCarry(result)
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         mode.set(result)
 
     # branch if carry clear
@@ -383,68 +378,58 @@ class CPU:
         operand = mode.get()
         self.setCarryOnCondition(operand > self.A)
         diff = (mode.get() - self.A) & 0xFF
-        self.setZero(diff)
-        self.setNegative(diff)
+        self.setZN(diff)
 
     # compare X register [Z,C,N = X-M]
     def cpx(self, mode):
         operand = mode.get()
         self.setCarryOnCondition(operand > self.X)
         diff = (mode.get() - self.X) & 0xFF
-        self.setZero(diff)
-        self.setNegative(diff)
+        self.setZN(diff)
 
     # compare Y register [Z,C,N = Y-M]
     def cpy(self, mode):
         operand = mode.get()
         self.setCarryOnCondition(operand > self.Y)
         diff = (mode.get() - self.Y) & 0xFF
-        self.setZero(diff)
-        self.setNegative(diff)
+        self.setZN(diff)
 
     # decrement memory [M,Z,N = M-1]
     def dec(self, mode):
         result = (mode.get() -1) & 0xFF
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         mode.set(result)
 
     # decrement X register [X,Z,N = X-1]
     def dex(self, mode):
         self.X -= 1
-        self.setZero(self.X)
-        self.setNegative(self.X)
+        self.setZN(self.X)
 
     # decrement Y register [Y,Z,N = Y-1]
     def dey(self, mode):
         self.Y -= 1
-        self.setZero(self.Y)
-        self.setNegative(self.Y)
+        self.setZN(self.Y)
 
     # exclusive or [A,Z,N = A^M]
     def eor(self, mode):
         self.A = self.A ^ mode.get()
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
 
     # increment memory [M,Z,N = M+1]
     def inc(self, mode):
         result = (mode.get() + 1) & 0xFF
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         mode.set(result)
 
     # increment x register [X,Z,N = X+1]
     def inx(self, mode):
         self.X = (self.X + 1) & 0xFF
-        self.setZero(self.X)
-        self.setNegative(self.X)
+        self.setZN(self.X)
 
     # increment y register [Y,Z,N = Y+1]
     def iny(self, mode):
         self.Y = (self.Y + 1) & 0xFF
-        self.setZero(self.Y)
-        self.setNegative(self.Y)
+        self.setZN(self.Y)
 
     # jump
     def jmp(self, mode):
@@ -457,28 +442,24 @@ class CPU:
     # load accumulator [A,Z,N = M]
     def lda(self, mode):
         self.A = mode.get()
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
 
     # load X register [X,Z,N = M]
     def ldx(self, mode):
         self.X = mode.get()
-        self.setZero(self.X)
-        self.setNegative(self.X)
+        self.setZN(self.X)
 
     # load Y register
     def ldy(self, mode):
         self.Y = mode.get()
-        self.setZero(self.Y)
-        self.setNegative(self.Y)
+        self.setZN(self.Y)
 
     # logical right shift
     def lsr(self, mode):
         operand = mode.get()
         result = (operand >> 1) & 0b0111111
         self.setCarry(operand & 1)
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         mode.set(result)
 
     # no operation
@@ -488,8 +469,7 @@ class CPU:
     # logical inclusive or [A,Z,N = A|M]
     def ora(self, mode):
         result = self.A | mode.get()
-        self.setZero(result)
-        self.setNegative(result)
+        self.setZN(result)
         self.A = result
 
     # push accumulator
@@ -503,8 +483,7 @@ class CPU:
     # pull accumulator
     def pla(self, mode):
         self.A = self.popStack()
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
 
     # pull processor status
     def plp(self, mode):
@@ -536,8 +515,7 @@ class CPU:
         self.setCarry(result)
         self.setOverflow(result)
         self.A = result & 0xFF
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
 
     # set carry flag
     def sec(self, mode):
@@ -565,26 +543,22 @@ class CPU:
     # transfer A to X
     def tax(self, mode):
         self.X = self.A
-        self.setZero(self.X)
-        self.setNegative(self.X)
+        self.setZN(self.X)
 
     # transfer A to Y
     def tay(self, mode):
         self.Y = self.A
-        self.setZero(self.Y)
-        self.setNegative(self.Y)
+        self.setZN(self.Y)
 
     # transfer SP to X
     def tsx(self, mode):
         self.X = self.SP
-        self.setZero(self.X)
-        self.setNegative(self.X)
+        self.setZN(self.X)
 
     # transfer X to A
     def txa(self, mode):
         self.A = self.X
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
 
     # transfer X to SP
     def txs(self, mode):
@@ -593,5 +567,4 @@ class CPU:
     # transfer Y to A
     def tya(self, mode):
         self.A = self.Y
-        self.setZero(self.A)
-        self.setNegative(self.A)
+        self.setZN(self.A)
