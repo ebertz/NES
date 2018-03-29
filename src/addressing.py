@@ -1,5 +1,8 @@
+# 6502 addressing modes
+# http://www.obelisk.me.uk/6502/addressing.html#ZPX
+
 class AddressingMode:
-	def __init__(self, cpu, size, crossPageCycles):
+	def __init__(self, size, cpu, crossPageCycles):
 		self.cpu = cpu
 		self.size = size
 		self.crossPageCycles = crossPageCycles
@@ -9,6 +12,9 @@ class AddressingMode:
 
 	def write(self, address, value):
 		pass
+
+	def get(self):
+		return self.read(self.cpu.PC + 1)
 
 class Implied(AddressingMode):
 	def __init__(self, cpu):
@@ -103,7 +109,7 @@ class Indirect(AddressingMode):
 # X is added before indirection
 class IndirectX(AddressingMode):
 	def __init__(self, cpu):
-		super().__init__(size, cpu, 0)
+		super().__init__(2, cpu, 0)
 
 	def read(self, address):
 		indirect_address = self.cpu.memory.read16(address + self.cpu.X)
@@ -116,7 +122,7 @@ class IndirectX(AddressingMode):
 # Y is added after indirection
 class IndirectY(AddressingMode):
 	def __init__(self, cpu):
-		super().__init__(size, cpu, 1)
+		super().__init__(2, cpu, 1)
 
 	def read(self, address):
 		indirect_address = self.cpu.memory.read16(address )
