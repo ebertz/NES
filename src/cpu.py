@@ -10,6 +10,7 @@ class CPU:
         self.console = None
         self.memory = memory.Memory()
         self.clock = None
+        self.cycles = 0
 
         #status flags
         self.C = 0
@@ -25,7 +26,7 @@ class CPU:
         self.X = 0
         self.Y = 0
         self.P = 0
-        self.SP = 0
+        self.SP = 0x01FF
         self.PC = 0
 
         self.implied = addressing.Implied(self)
@@ -203,6 +204,29 @@ class CPU:
             0xfe: [self.inc, self.absoluteX, 7],
         }
 
+    #stack is located at 0x0100-0x01FF, top-down, wraps to start of stack if overflow
+    def pushStack(self, value):
+        self.memory.write(self.SP, value)
+        self.SP -= 1
+
+    def popStack(self):
+        self.SP += 1
+        return self.memory.read(self.SP)
+
+        # NV_BDIZC
+    def getProcessorStatus(self):
+        return (((self.N << 7) | (self.V << 6) | (self.B << 4) | (self.D << 3)
+               | (self.I << 2) | (self.Z << 1) | self.C) & 0xFF)
+
+    def setProcessorStatus(self, value):
+        self.N = (value >> 7) & 1
+        self.V = (value >> 6) & 1
+        self.B = (value >> 4) & 1
+        self.D = (value >> 3) & 1
+        self.I = (value >> 2) & 1
+        self.Z = (value >> 1) & 1
+        self.C = value & 1
+
     def setCarry(self, value):
         self.C = 1 if value > 0xFF else 0
 
@@ -212,29 +236,36 @@ class CPU:
     def setNegative(self, value):
         self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
 
-    def setInterruptDisable(self, condition):
+    def setCarryOnCondition(self, condition):
+        self.C = 1 if condition else 0
+
+    def setZeroOnCondition(self, condition):
+        self.Z = 1 if condition else 0
+
+    def setNegativeOnCondition(self, condition):
+        self.N = 1 if condition else 0
+
+    def setInterruptDisableOnCondition(self, condition):
         self.I = 1 if condition else 0
 
-    def setDecimalMode(self, condition):
+    def setDecimalModeOnCondition(self, condition):
         self.D = 1 if condition else 0
 
-    def setBreakCommand(self, condition):
+    def setBreakCommandOnCondition(self, condition):
         self.B = 1 if condition else 0
 
-    def setOverflow(self, condition):
+    def setOverflowOnCondition(self, condition):
         self.V = 1 if condition else 0
 
     def execute(self, instruction, addressingMode, cycles):
-
         instruction(addressingMode)
-        print('burned ' + str(cycles) + ' cycles\n')
         self.PC += addressingMode.size
+        self.cycles += cycles
 
     # OPERATIONS 
     # http://www.obelisk.me.uk/6502/reference.html
     # http://www.6502.org/tutorials/6502opcodes.html
     
-
     # add with carry [A,Z,C,N = A+M+C]
     def adc(self, mode):
         result = mode.get() + self.A + self.C
@@ -251,253 +282,317 @@ class CPU:
         self.setNegative(result)
         self.A = result
 
-    # arithmetic left shift [A,Z,C,N = M*2, M,Z,C,N = M*2]
+    # arithmetic left shift [A,Z,C,N = M*2],[M,Z,C,N = M*2]
     def asl(self, mode):
         result = mode.get() << 1;
         self.setCarry(result)
         self.setZero(result)
         self.setNegative(result)
+        mode.set(result)
 
     # branch if carry clear
     def bcc(self, mode):
         if self.C:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # branch if carry set
-    def bcs(self):
+    def bcs(self, mode):
         if not self.C:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # branch if equal
-    def beq(self):
+    def beq(self, mode):
         if not self.Z:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # bit test
-    def bit(self):
+    def bit(self, mode):
         pass
 
     # branch if minus
-    def bmi(self):
+    def bmi(self, mode):
         if not self.N:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # branch not equal
-    def bne(self):
+    def bne(self, mode):
         if self.Z:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # branch if positive
-    def bpl(self):
+    def bpl(self, mode):
         if self.N:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # force interrupt
-    def brk(self):
+    def brk(self, mode):
         self.A = 5
 
     # branch if overflow clear
-    def bvc(self):
+    def bvc(self, mode):
         if self.V:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # branch if overflow set
-    def bvs(self):
-         if not self.V:
+    def bvs(self, mode):
+        if not self.V:
             return
         relAddr = mode.get()
-        extraCycles = mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
-        self.PC = relAddr + extraCycles
+        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.PC = relAddr
 
     # clear carry flag
-    def clc(self):
-        pass
+    def clc(self, mode):
+        self.C = 0
 
     # clear decimal mode
-    def cld(self):
-        pass
+    def cld(self, mode):
+        self.D = 0
 
     # clear interrupt disable
-    def cli(self):
-        pass
+    def cli(self, mode):
+        self.I = 0
 
     # clear overflow flag
-    def clv(self):
-        pass
+    def clv(self, mode):
+        self.V = 0
 
-    # compare
-    def cmp(self):
-        pass
+    # compare [Z,C,N = A-M]
+    def cmp(self, mode):
+        operand = mode.get()
+        self.setCarryOnCondition(operand > self.A)
+        diff = (mode.get() - self.A) && 0xFF
+        self.setZero(diff)
+        self.setNegative(diff)
 
-    # compare X register
-    def cpx(self):
-        pass
+    # compare X register [Z,C,N = X-M]
+    def cpx(self, mode):
+        operand = mode.get()
+        self.setCarryOnCondition(operand > self.X)
+        diff = (mode.get() - self.X) && 0xFF
+        self.setZero(diff)
+        self.setNegative(diff)
 
-    # compare Y register
-    def cpy(self):
-        pass
+    # compare Y register [Z,C,N = Y-M]
+    def cpy(self, mode):
+        operand = mode.get()
+        self.setCarryOnCondition(operand > self.Y)
+        diff = (mode.get() - self.Y) && 0xFF
+        self.setZero(diff)
+        self.setNegative(diff)
 
-    # decrement memory
-    def dec(self):
-        pass
+    # decrement memory [M,Z,N = M-1]
+    def dec(self, mode):
+        result = (mode.get() -1) & 0xFF
+        self.setZero(result)
+        self.setNegative(result)
+        mode.set(result)
 
-    # decrement X register
-    def dex(self):
-        pass
+    # decrement X register [X,Z,N = X-1]
+    def dex(self, mode):
+        self.X -= 1
+        self.setZero(self.X)
+        self.setNegative(self.X)
 
-    # decrement Y register
-    def dey(self):
-        pass
+    # decrement Y register [Y,Z,N = Y-1]
+    def dey(self, mode):
+        self.Y -= 1
+        self.setZero(self.Y)
+        self.setNegative(self.Y)
 
-    # exclusive or
-    def eor(self):
-        pass
+    # exclusive or [A,Z,N = A^M]
+    def eor(self, mode):
+        self.A = self.A ^ mode.get()
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
-    # increment memory
-    def inc(self):
-        pass
+    # increment memory [M,Z,N = M+1]
+    def inc(self, mode):
+        result = (mode.get() + 1) & 0xFF
+        self.setZero(result)
+        self.setNegative(result)
+        mode.set(result)
 
-    # increment x register
-    def inx(self):
-        pass
+    # increment x register [X,Z,N = X+1]
+    def inx(self, mode):
+        self.X = (self.X + 1) & 0xFF
+        self.setZero(self.X)
+        self.setNegative(self.X)
 
-    # increment y register
-    def iny(self):
-        pass
+    # increment y register [Y,Z,N = Y+1]
+    def iny(self, mode):
+        self.Y = (self.Y + 1) & 0xFF
+        self.setZero(self.Y)
+        self.setNegative(self.Y)
 
     # jump
-    def jmp(self):
+    def jmp(self, mode):
         pass
 
     # jump subroutine
-    def jsr(self):
+    def jsr(self, mode):
         pass
 
-    # load accumulator
-    def lda(self):
-        pass
+    # load accumulator [A,Z,N = M]
+    def lda(self, mode):
+        self.A = mode.get()
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
-    # load X register
-    def ldx(self):
-        pass
+    # load X register [X,Z,N = M]
+    def ldx(self, mode):
+        self.X = mode.get()
+        self.setZero(self.X)
+        self.setNegative(self.X)
 
     # load Y register
-    def ldy(self):
-        pass
+    def ldy(self, mode):
+        self.Y = mode.get()
+        self.setZero(self.Y)
+        self.setNegative(self.Y)
 
     # logical right shift
-    def lsr(self):
-        pass
+    def lsr(self, mode):
+        operand = mode.get()
+        result = (operand >> 1) & 0b0111111
+        self.setCarry(operand & 1)
+        self.setZero(result)
+        self.setNegative(result)
+        mode.set(result)
 
     # no operation
-    def nop(self):
+    def nop(self, mode):
         pass
 
-    # logical inclusive or
-    def ora(self):
-        pass
+    # logical inclusive or [A,Z,N = A|M]
+    def ora(self, mode):
+        result = self.A | mode.get()
+        self.setZero(result)
+        self.setNegative(result)
+        self.A = result
 
     # push accumulator
-    def pha(self):
-        pass
+    def pha(self, mode):
+        self.pushStack(self.A)
 
     # push processor status
-    def php(self):
-        pass
+    def php(self, mode):
+        self.pushStack(self.getProcessorStatus())
 
     # pull accumulator
-    def pla(self):
-        pass
+    def pla(self, mode):
+        self.A = self.popStack()
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
     # pull processor status
-    def plp(self):
-        pass
+    def plp(self, mode):
+        self.setProcessorStatus(self.popStack())
 
     # rotate left
-    def rol(self):
-        pass
+    def rol(self, mode):
+        operand = mode.get()
+        result = (operand << 1) | self.C
+        self.C = (operand >> 7) & 1
+        # ???????????
 
     # rotate right
-    def ror(self):
+    def ror(self, mode):
         pass
 
-    # return from interrupt
-    def rti(self):
-        pass
+    # return from interrupt - pull flags then PC from stack
+    def rti(self, mode):
+        self.setProcessorStatus(self.popStack())
+        self.PC = self.popStack()
 
-    # return from subroutine
-    def rts(self):
-        pass
+    # return from subroutine - pulls PC (minus one) from stack
+    def rts(self, mode):
+        self.PC = self.popStack() - 1
 
-    # subtract with carry
-    def sbc(self):
-        pass
+    # subtract with carry [A,Z,C,N = A-M-(1-C)]
+    def sbc(self, mode):
+        result = self.a - mode.get() - (1-self.C)
+        self.setCarry(result)
+        self.setOverflow(result)
+        self.A = result & 0xFF
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
     # set carry flag
-    def sec(self):
-        pass
+    def sec(self, mode):
+        self.C = 1
 
     # set decimal flag
-    def sed(self):
-        pass
+    def sed(self, mode):
+        self.D = 1
 
     # set interrupt disable flag
-    def sei(self):
-        pass
+    def sei(self, mode):
+        self.I = 1
     # store accumulator
-    def sta(self):
-        pass
+    def sta(self, mode):
+        mode.set(self.A)
 
     # store X register
-    def stx(self):
-        pass
+    def stx(self, mode):
+        mode.set(self.X)
 
     # store Y register
-    def  sty(self):
-        pass
+    def  sty(self, mode):
+        mode.set(self.Y)
 
     # transfer A to X
-    def tax(self):
-        pass
+    def tax(self, mode):
+        self.X = self.A
+        self.setZero(self.X)
+        self.setNegative(self.X)
 
     # transfer A to Y
-    def tay(self):
-        pass
+    def tay(self, mode):
+        self.Y = self.A
+        self.setZero(self.Y)
+        self.setNegative(self.Y)
 
     # transfer SP to X
-    def tsx(self):
-        pass
+    def tsx(self, mode):
+        self.X = self.SP
+        self.setZero(self.X)
+        self.setNegative(self.X)
 
     # transfer X to A
-    def txa(self):
-        pass
+    def txa(self, mode):
+        self.A = self.X
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
     # transfer X to SP
-    def txs(self):
-        pass
+    def txs(self, mode):
+        self.SP = self.X
 
     # transfer Y to A
-    def tya(self):
-        pass
+    def tya(self, mode):
+        self.A = self.Y
+        self.setZero(self.A)
+        self.setNegative(self.A)
 
