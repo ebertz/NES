@@ -1,5 +1,6 @@
 # 6502 addressing modes
 # http://www.obelisk.me.uk/6502/addressing.html#ZPX
+# http://nesdev.com/NESDoc.pdf
 
 class AddressingMode:
 	def __init__(self, size, cpu, crossPageCycles):
@@ -15,6 +16,9 @@ class AddressingMode:
 
 	def get(self):
 		return self.read(self.cpu.PC + 1)
+
+	def set(self, value):
+		return self.write(self.cpu.PC + 1, value)
 
 class Implied(AddressingMode):
 	def __init__(self, cpu):
@@ -137,4 +141,4 @@ class Relative(AddressingMode):
 		super().__init__(2, cpu, 2) #TODO: check branch behavior
 
 	def read(self, address):
-		return (self.cpu.PC + address) & 0xFF
+		return (self.cpu.PC + self.cpu.memory.read(address)) & 0xFFFF

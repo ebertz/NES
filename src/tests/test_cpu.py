@@ -81,7 +81,6 @@ class InstructionTests(unittest.TestCase):
 		self.cpu.memory.write(0x1001, 0x10)
 		assert self.cpu.relative.read(0x1001) == 0x1010	
 
-	#adc
 	def test_adc(self): #0x69
 		self.cpu.A = 0xFF
 		self.cpu.PC = 0x1000

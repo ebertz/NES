@@ -270,7 +270,7 @@ class CPU:
     def adc(self, mode):
         result = mode.get() + self.A + self.C
         self.A = result & 0xFF
-        self.setOverflow(self.A != result)
+        self.setOverflowOnCondition(self.A != result)
         self.setCarry(result)
         self.setNegative(result)
         self.setZero(result)
@@ -382,7 +382,7 @@ class CPU:
     def cmp(self, mode):
         operand = mode.get()
         self.setCarryOnCondition(operand > self.A)
-        diff = (mode.get() - self.A) && 0xFF
+        diff = (mode.get() - self.A) & 0xFF
         self.setZero(diff)
         self.setNegative(diff)
 
@@ -390,7 +390,7 @@ class CPU:
     def cpx(self, mode):
         operand = mode.get()
         self.setCarryOnCondition(operand > self.X)
-        diff = (mode.get() - self.X) && 0xFF
+        diff = (mode.get() - self.X) & 0xFF
         self.setZero(diff)
         self.setNegative(diff)
 
@@ -398,7 +398,7 @@ class CPU:
     def cpy(self, mode):
         operand = mode.get()
         self.setCarryOnCondition(operand > self.Y)
-        diff = (mode.get() - self.Y) && 0xFF
+        diff = (mode.get() - self.Y) & 0xFF
         self.setZero(diff)
         self.setNegative(diff)
 
@@ -595,4 +595,3 @@ class CPU:
         self.A = self.Y
         self.setZero(self.A)
         self.setNegative(self.A)
-
