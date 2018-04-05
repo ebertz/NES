@@ -359,15 +359,15 @@ class CPU:
     # compare X register [Z,C,N = X-M]
     def cpx(self, mode):
         operand = mode.get()
-        self.C = operand > self.X
-        diff = (mode.get() - self.X) & 0xFF
+        self.C = self.X >= operand
+        diff = (self.X - operand) & 0xFF
         self.setZN(diff)
 
     # compare Y register [Z,C,N = Y-M]
     def cpy(self, mode):
         operand = mode.get()
-        self.C = operand > self.Y
-        diff = (mode.get() - self.Y) & 0xFF
+        self.C = self.Y >= operand
+        diff = (self.Y - operand) & 0xFF
         self.setZN(diff)
 
     # decrement memory [M,Z,N = M-1]

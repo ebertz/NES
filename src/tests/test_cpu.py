@@ -173,6 +173,7 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.PC == 0x1001
 
 	def test_cmp(self):
+		#test zero result
 		initCycles = self.cpu.cycles
 		self.cpu.PC = 0x1000
 		self.cpu.A = 0x10
@@ -181,7 +182,7 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.Z
 		assert self.cpu.C
 		assert not self.cpu.N
-
+		#test negative result
 		self.cpu.PC = 0x1000
 		self.cpu.A = 0x10
 		self.cpu.memory.write(0x1001, 0x11)
@@ -189,6 +190,136 @@ class InstructionTests(unittest.TestCase):
 		assert not self.cpu.Z
 		assert not self.cpu.C
 		assert self.cpu.N
+
+	def test_cpx(self):
+		#test zero result
+		initCycles = self.cpu.cycles
+		self.cpu.PC = 0x1000
+		self.cpu.X = 0x10
+		self.cpu.memory.write(0x1001, 0x10)		
+		self.cpu.execute(*self.cpu.instructions[0xe0])
+		assert self.cpu.Z
+		assert self.cpu.C
+		assert not self.cpu.N
+		#test negative result
+		self.cpu.PC = 0x1000
+		self.cpu.X = 0x10
+		self.cpu.memory.write(0x1001, 0x11)
+		self.cpu.execute(*self.cpu.instructions[0xe0])
+		assert not self.cpu.Z
+		assert not self.cpu.C
+		assert self.cpu.N
+
+	def test_cpy(self):
+		#test zero result
+		initCycles = self.cpu.cycles
+		self.cpu.PC = 0x1000
+		self.cpu.Y = 0x10
+		self.cpu.memory.write(0x1001, 0x10)		
+		self.cpu.execute(*self.cpu.instructions[0xc0])
+		assert self.cpu.Z
+		assert self.cpu.C
+		assert not self.cpu.N
+		#test negative result
+		self.cpu.PC = 0x1000
+		self.cpu.Y = 0x10
+		self.cpu.memory.write(0x1001, 0x11)
+		self.cpu.execute(*self.cpu.instructions[0xc0])
+		assert not self.cpu.Z
+		assert not self.cpu.C
+		assert self.cpu.N
+
+	def test_dec(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.memory.write(0x2000, 0x5)
+		self.cpu.execute(*self.cpu.instructions[0xce])
+		assert self.cpu.memory.read(0x2000) == 0x4
+		assert not self.cpu.Z
+		assert not self.cpu.N
+
+	def test_dex(self):
+		self.cpu.X = 0x5
+		self.cpu.execute(*self.cpu.instructions[0xca])
+		assert self.cpu.X == 0x4
+		assert not self.cpu.Z
+		assert not self.cpu.N
+	
+	def test_dey(self):
+		self.cpu.Y = 0x5
+		self.cpu.execute(*self.cpu.instructions[0x88])
+		assert self.cpu.Y == 0x4
+		assert not self.cpu.Z
+		assert not self.cpu.N
+
+	def test_eor(self):
+		self.cpu.A = 0b01010101
+		self.cpu.memory.write(0x2000, 0b10101010)
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.PC = 0x1000
+		self.cpu.execute(*self.cpu.instructions[0x4d])
+		assert self.cpu.A == 0b11111111	
+
+	def test_inc(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.memory.write(0x2000, 0x5)
+		self.cpu.execute(*self.cpu.instructions[0xee])
+		assert self.cpu.memory.read(0x2000) == 0x6
+		assert not self.cpu.Z
+		assert not self.cpu.N
+	
+	def test_inx(self):
+		self.cpu.X = 0x5
+		self.cpu.execute(*self.cpu.instructions[0xe8])
+		assert self.cpu.X == 0x6
+		assert not self.cpu.Z
+		assert not self.cpu.N
+	
+	def test_iny(self):
+		self.cpu.Y = 0x5
+		self.cpu.execute(*self.cpu.instructions[0xc8])
+		assert self.cpu.Y == 0x6
+		assert not self.cpu.Z
+		assert not self.cpu.N
+
+	def test_jmp(self):
+		print('TODO: test_jmp')
+
+	def test_jsr(self):
+		print('TODO: test_jsr')
+
+	def test_lda(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0xa9])
+		assert self.cpu.A == 0x10
+		assert not self.cpu.N
+		assert not self.cpu.Z
+
+	def test_ldx(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0xa2])
+		assert self.cpu.X == 0x10
+		assert not self.cpu.N
+		assert not self.cpu.Z
+
+	def test_ldy(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0xa0])
+		assert self.cpu.Y == 0x10
+		assert not self.cpu.N
+		assert not self.cpu.Z
+
+	def test_lsr(self):
+		self.cpu.A = 0b00001111
+		self.cpu.execute(*self.cpu.instructions[0x4a])
+		assert self.cpu.A == 0b00000111
+		assert not self.cpu.Z
+		assert not self.cpu.N
+		assert self.cpu.C
 
 if __name__ == '__main__':
 	unittest.main()

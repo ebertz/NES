@@ -79,7 +79,7 @@ class Absolute(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read16(address))
 
 	def write(self, address, value):
-		self.cpu.memory.write(address, value)
+		self.cpu.memory.write(self.cpu.memory.read16(address), value)
 
 class AbsoluteX(AddressingMode):
 	def __init__(self, cpu):
