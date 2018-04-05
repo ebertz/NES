@@ -231,30 +231,6 @@ class CPU:
         self.Z = 1 if value & 0xFF == 0 else 0
         self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
 
-    def setCarry(self, value):
-        self.C = 1 if value > 0xFF else 0
-
-    def setCarryOnCondition(self, condition):
-        self.C = 1 if condition else 0
-
-    def setZeroOnCondition(self, condition):
-        self.Z = 1 if condition else 0
-
-    def setNegativeOnCondition(self, condition):
-        self.N = 1 if condition else 0
-
-    def setInterruptDisableOnCondition(self, condition):
-        self.I = 1 if condition else 0
-
-    def setDecimalModeOnCondition(self, condition):
-        self.D = 1 if condition else 0
-
-    def setBreakCommandOnCondition(self, condition):
-        self.B = 1 if condition else 0
-
-    def setOverflowOnCondition(self, condition):
-        self.V = 1 if condition else 0
-
     def execute(self, instruction, addressingMode, cycles):
         instruction(addressingMode)
         self.PC += addressingMode.size
@@ -268,8 +244,8 @@ class CPU:
     def adc(self, mode):
         result = mode.get() + self.A + self.C
         self.A = result & 0xFF
-        self.setOverflowOnCondition(self.A != result)
-        self.setCarry(result)
+        self.V = self.A != result
+        self.C = result > 0xFF
         self.setZN(result)
 
     # logical and [A,Z,N = A&M]
@@ -281,7 +257,7 @@ class CPU:
     # arithmetic left shift [A,Z,C,N = M*2],[M,Z,C,N = M*2]
     def asl(self, mode):
         result = mode.get() << 1;
-        self.setCarry(result)
+        self.C = result > 0xFF
         self.setZN(result)
         mode.set(result)
 
@@ -376,21 +352,21 @@ class CPU:
     # compare [Z,C,N = A-M]
     def cmp(self, mode):
         operand = mode.get()
-        self.setCarryOnCondition(operand > self.A)
-        diff = (mode.get() - self.A) & 0xFF
+        self.C = self.A >= operand
+        diff = (self.A - operand) & 0xFF
         self.setZN(diff)
 
     # compare X register [Z,C,N = X-M]
     def cpx(self, mode):
         operand = mode.get()
-        self.setCarryOnCondition(operand > self.X)
+        self.C = operand > self.X
         diff = (mode.get() - self.X) & 0xFF
         self.setZN(diff)
 
     # compare Y register [Z,C,N = Y-M]
     def cpy(self, mode):
         operand = mode.get()
-        self.setCarryOnCondition(operand > self.Y)
+        self.C = operand > self.Y
         diff = (mode.get() - self.Y) & 0xFF
         self.setZN(diff)
 
@@ -458,7 +434,7 @@ class CPU:
     def lsr(self, mode):
         operand = mode.get()
         result = (operand >> 1) & 0b0111111
-        self.setCarry(operand & 1)
+        self.C = operand & 1
         self.setZN(result)
         mode.set(result)
 
@@ -512,8 +488,8 @@ class CPU:
     # subtract with carry [A,Z,C,N = A-M-(1-C)]
     def sbc(self, mode):
         result = self.a - mode.get() - (1-self.C)
-        self.setCarry(result)
-        self.setOverflow(result)
+        self.C = result > 0xFF
+        self.V = False # fix this
         self.A = result & 0xFF
         self.setZN(self.A)
 
