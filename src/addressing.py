@@ -29,7 +29,7 @@ class Immediate(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		return address
+		return self.cpu.memory.read(address)
 
 class Accumulator(AddressingMode):
 	def __init__(self, cpu):
@@ -46,7 +46,7 @@ class ZeroPage(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		return self.cpu.memory.read(address & 0xFF)
+		return self.cpu.memory.read(self.cpu.memory.read(address) & 0xFF)
 
 	def write(self, address, value):
 		self.cpu.memory.write(address & 0xFF, value)
@@ -56,7 +56,7 @@ class ZeroPageX(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		return self.cpu.memory.read((address + self.cpu.X) & 0xFF)
+		return self.cpu.memory.read((self.cpu.memory.read(address) + self.cpu.X) & 0xFF)
 
 	def write(self, address, value):
 		self.cpu.memory.write((address + self.cpu.X) & 0xFF, value)
@@ -66,7 +66,7 @@ class ZeroPageY(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		return self.cpu.memory.read((address + self.cpu.Y) & 0xFF)
+		return self.cpu.memory.read((self.cpu.memory.read(address) + self.cpu.Y) & 0xFF)
 
 	def write(self, address, value):
 		self.cpu.memory.write((address + self.cpu.Y) & 0xFF, value)
@@ -76,7 +76,7 @@ class Absolute(AddressingMode):
 		super().__init__(3, cpu, 0)
 
 	def read(self, address):
-		return self.cpu.memory.read(address)
+		return self.cpu.memory.read(self.cpu.memory.read16(address))
 
 	def write(self, address, value):
 		self.cpu.memory.write(address, value)
@@ -86,7 +86,7 @@ class AbsoluteX(AddressingMode):
 		super().__init__(3, cpu, 1)
 
 	def read(self, address):
-		return self.cpu.memory.read(address + self.cpu.X)
+		return self.cpu.memory.read(self.cpu.memory.read16(address) + self.cpu.X)
 
 	def write(self, address, value):
 		self.cpu.memory.write(address + self.cpu.X, value)
@@ -96,7 +96,7 @@ class AbsoluteY(AddressingMode):
 		super().__init__(3, cpu, 1)
 
 	def read(self, address):
-		return self.cpu.memory.read(address + self.cpu.Y)
+		return self.cpu.memory.read(self.cpu.memory.read16(address) + self.cpu.Y)
 
 	def write(self, address, value):
 		self.cpu.memory.write(address + self.cpu.Y, value)
@@ -107,7 +107,7 @@ class Indirect(AddressingMode):
 
 	def read(self, address):
 		indirect_address = self.cpu.memory.read16(address)
-		return self.cpu.memory.read(indirect_address)
+		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
 
 
 # X is added before indirection
@@ -116,8 +116,8 @@ class IndirectX(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		indirect_address = self.cpu.memory.read16(address + self.cpu.X)
-		return self.cpu.memory.read(indirect_address)
+		indirect_address = self.cpu.memory.read16(address) + self.cpu.X
+		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
 
 	def write(self, address, value):
 		indirect_address = self.cpu.memory.read16(address + self.cpu.X)
@@ -129,8 +129,8 @@ class IndirectY(AddressingMode):
 		super().__init__(2, cpu, 1)
 
 	def read(self, address):
-		indirect_address = self.cpu.memory.read16(address )
-		return self.cpu.memory.read(indirect_address + self.cpu.Y)
+		indirect_address = self.cpu.memory.read16(address)
+		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address) + self.cpu.Y)
 
 	def write(self, address, value):
 		indirect_address = self.cpu.memory.read16(address )
