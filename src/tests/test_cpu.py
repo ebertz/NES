@@ -321,5 +321,36 @@ class InstructionTests(unittest.TestCase):
 		assert not self.cpu.N
 		assert self.cpu.C
 
+	def test_nop(self):
+		pass
+
+	def test_ora(self):
+		self.cpu.A = 0b01010101
+		self.cpu.memory.write(0x2000, 0b10101010)
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.PC = 0x1000
+		self.cpu.execute(*self.cpu.instructions[0x0d])
+		assert self.cpu.A == 0b11111111
+
+	def test_pha(self):
+		self.cpu.SP = 0x1FF
+		self.cpu.A = 0x5
+		self.cpu.execute(*self.cpu.instructions[0x48])
+		assert self.cpu.SP == 0x1FE
+		assert self.cpu.memory.read(0x1FF) == 0x5
+
+	def test_php(self):
+		self.cpu.SP = 0x1FF
+		self.cpu.setProcessorStatus(0xFF)
+		self.cpu.execute(*self.cpu.instructions[0x08])
+		assert self.cpu.SP == 0x1FE
+		assert self.cpu.memory.read(0x1FF) == self.cpu.getProcessorStatus()
+
+	def test_pla(self):
+		pass
+
+	def test_plp(self):
+		pass
+
 if __name__ == '__main__':
 	unittest.main()
