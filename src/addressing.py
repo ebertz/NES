@@ -49,7 +49,7 @@ class ZeroPage(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read(address) & 0xFF)
 
 	def write(self, address, value):
-		self.cpu.memory.write(address & 0xFF, value)
+		self.cpu.memory.write(self.cpu.memory.read(address) & 0xFF, value)
 
 class ZeroPageX(AddressingMode):
 	def __init__(self, cpu):
@@ -59,7 +59,7 @@ class ZeroPageX(AddressingMode):
 		return self.cpu.memory.read((self.cpu.memory.read(address) + self.cpu.X) & 0xFF)
 
 	def write(self, address, value):
-		self.cpu.memory.write((address + self.cpu.X) & 0xFF, value)
+		self.cpu.memory.write((self.cpu.memory.read(address) + self.cpu.X) & 0xFF, value)
 
 class ZeroPageY(AddressingMode):
 	def __init__(self, cpu):
@@ -69,7 +69,7 @@ class ZeroPageY(AddressingMode):
 		return self.cpu.memory.read((self.cpu.memory.read(address) + self.cpu.Y) & 0xFF)
 
 	def write(self, address, value):
-		self.cpu.memory.write((address + self.cpu.Y) & 0xFF, value)
+		self.cpu.memory.write((self.cpu.memory.read(address) + self.cpu.Y) & 0xFF, value)
 
 class Absolute(AddressingMode):
 	def __init__(self, cpu):
@@ -89,7 +89,7 @@ class AbsoluteX(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read16(address) + self.cpu.X)
 
 	def write(self, address, value):
-		self.cpu.memory.write(address + self.cpu.X, value)
+		self.cpu.memory.write(self.cpu.memory.read16(address) + self.cpu.X, value)
 
 class AbsoluteY(AddressingMode):
 	def __init__(self, cpu):
@@ -99,7 +99,7 @@ class AbsoluteY(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read16(address) + self.cpu.Y)
 
 	def write(self, address, value):
-		self.cpu.memory.write(address + self.cpu.Y, value)
+		self.cpu.memory.write(self.cpu.memory.read16(address)+ self.cpu.Y, value)
 
 class Indirect(AddressingMode):
 	def __init__(self, cpu):
@@ -120,7 +120,7 @@ class IndirectX(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
 
 	def write(self, address, value):
-		indirect_address = self.cpu.memory.read16(address + self.cpu.X)
+		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) + self.cpu.X)
 		self.cpu.memory.write(indirect_address, value)
 
 # Y is added after indirection
@@ -133,7 +133,7 @@ class IndirectY(AddressingMode):
 		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address) + self.cpu.Y)
 
 	def write(self, address, value):
-		indirect_address = self.cpu.memory.read16(address )
+		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) )
 		self.cpu.memory.write(indirect_address + self.cpu.Y, value)
 
 class Relative(AddressingMode):
