@@ -231,6 +231,9 @@ class CPU:
         self.Z = 1 if value & 0xFF == 0 else 0
         self.N = 1 if ((value & 0xFF) >> 7 ) & 1 else 0
 
+    def setSP(self, value):
+        self.SP = 0x100 + (value & 0xFF)
+        
     def execute(self, instruction, addressingMode, cycles):
         instruction(addressingMode)
         self.PC += addressingMode.size
@@ -468,13 +471,16 @@ class CPU:
     # rotate left
     def rol(self, mode):
         operand = mode.get()
-        result = (operand << 1) | self.C
+        result = ((operand << 1) | self.C) & 0xFF
         self.C = (operand >> 7) & 1
-        # ???????????
+        mode.set(result)
 
     # rotate right
     def ror(self, mode):
-        pass
+        operand = mode.get()
+        result = ((operand >> 1) | (self.C << 7)) & 0xFF
+        self.C = (operand >> 7) & 1
+        mode.set(result)
 
     # return from interrupt - pull flags then PC from stack
     def rti(self, mode):
@@ -487,7 +493,7 @@ class CPU:
 
     # subtract with carry [A,Z,C,N = A-M-(1-C)]
     def sbc(self, mode):
-        result = self.a - mode.get() - (1-self.C)
+        result = self.A - mode.get() - (1-self.C)
         self.C = result > 0xFF
         self.V = False # fix this
         self.A = result & 0xFF
@@ -538,7 +544,7 @@ class CPU:
 
     # transfer X to SP
     def txs(self, mode):
-        self.SP = self.X
+        self.setSP(self.X)
 
     # transfer Y to A
     def tya(self, mode):
