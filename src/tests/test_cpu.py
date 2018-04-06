@@ -3,22 +3,9 @@ import os, sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from cpu import *
 
-class InstructionTests(unittest.TestCase):
+class AddressingModeTests(unittest.TestCase):
 	def setUp(self):
 		self.cpu = CPU()
-
-	def tearDown(self):
-		pass
-
-	def test_memory_read16(self):
-		self.cpu.memory.write(0x1000, 0x34)
-		self.cpu.memory.write(0x1001, 0x12)
-		assert self.cpu.memory.read16(0x1000) == 0x1234
-
-	def test_memory_write16(self):
-		self.cpu.memory.write16(0x1000, 0x1234)
-		assert self.cpu.memory.read(0x1000) == 0x34
-		assert self.cpu.memory.read(0x1001) == 0x12
 
 	def test_address_zero_page_read(self):
 		self.cpu.memory.write(0x10, 5)
@@ -88,7 +75,79 @@ class InstructionTests(unittest.TestCase):
 	def test_address_relative_read(self):
 		self.cpu.PC = 0x1000
 		self.cpu.memory.write(0x1001, 0x10)
-		assert self.cpu.relative.read(0x1001) == 0x1010	
+		assert self.cpu.relative.read(0x1001) == 0x1010
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	def test_address_zero_page_write(self):
+		self.cpu.memory.write(0x1000, 0x10)
+		self.cpu.zeroPage.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x10) == 0x5
+
+	def test_address_zero_page_x_write(self):
+		self.cpu.memory.write(0x1000, 0xFF)
+		self.cpu.X = 0x1
+		self.cpu.zeroPageX.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x00) == 0x5
+
+	def test_address_zero_page_y_write(self):
+		self.cpu.memory.write(0x1000, 0xFF)
+		self.cpu.Y = 0x1
+		self.cpu.zeroPageY.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x00) == 0x5
+
+	def test_address_absolute_write(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.absolute.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x2000) == 0x5
+
+	def test_address_absolute_x_write(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.X = 0x10
+		self.cpu.absoluteX.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x2010) == 0x5
+
+	def test_address_absolute_y_write(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.Y = 0x10
+		self.cpu.absoluteY.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x2010) == 0x5			
+
+	def test_address_indirect_x_write(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.X = 0x10
+		self.cpu.memory.write16(0x2010, 0x3000)
+		self.cpu.indirectX.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x3000) == 0x5
+
+	def test_address_indirect_y_write(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.memory.write16(0x2000, 0x3000)
+		self.cpu.Y = 0x10
+		self.cpu.indirectY.write(0x1000, 0x5)
+		assert self.cpu.memory.read(0x3010) == 0x5
+
+	def test_address_accumulator_write(self):
+		self.cpu.accumulator.write(0, 0xFF)
+		assert self.cpu.A == 0xFF
+
+class InstructionTests(unittest.TestCase):
+	def setUp(self):
+		self.cpu = CPU()
+
+	def tearDown(self):
+		pass
+
+	def test_memory_read16(self):
+		self.cpu.memory.write(0x1000, 0x34)
+		self.cpu.memory.write(0x1001, 0x12)
+		assert self.cpu.memory.read16(0x1000) == 0x1234
+
+	def test_memory_write16(self):
+		self.cpu.memory.write16(0x1000, 0x1234)
+		assert self.cpu.memory.read(0x1000) == 0x34
+		assert self.cpu.memory.read(0x1001) == 0x12
+
 
 	def test_adc(self): #0x69
 		self.cpu.A = 0xFF
@@ -347,10 +406,134 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.memory.read(0x1FF) == self.cpu.getProcessorStatus()
 
 	def test_pla(self):
-		pass
+		init_sp = self.cpu.SP
+		self.cpu.pushStack(0x5)
+		self.cpu.execute(*self.cpu.instructions[0x68])
+		assert self.cpu.A == 0x5
+		assert self.cpu.SP == init_sp
 
 	def test_plp(self):
-		pass
+		init_sp = self.cpu.SP
+		self.cpu.pushStack(0xdf)
+		self.cpu.execute(*self.cpu.instructions[0x28])
+		assert self.cpu.getProcessorStatus() == 0xdf
+		assert self.cpu.SP == init_sp
+
+	def test_rol(self):
+		self.cpu.C = 0
+		self.cpu.A = 0b11111111
+		self.cpu.execute(*self.cpu.instructions[0x2a])
+		assert self.cpu.A == 0b11111110
+		assert self.cpu.C == 1
+
+	def test_ror(self):
+		self.cpu.C = 0
+		self.cpu.A = 0b11111111
+		self.cpu.execute(*self.cpu.instructions[0x6a])
+		assert self.cpu.A == 0b01111111
+		assert self.cpu.C == 1
+
+	def test_rti(self):
+		print('TODO: test_rti')
+
+	def test_rts(self):
+		print('TODO: test_rts')
+
+	def test_sbc(self):
+		self.cpu.C = 1
+		self.cpu.A = 0xFF
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0xF)
+		self.cpu.execute(*self.cpu.instructions[0xe9])
+		assert self.cpu.A == 0xF0
+		assert self.cpu.C == 0
+		assert self.cpu.N == 1
+		assert self.cpu.Z == 0
+		assert self.cpu.PC == 0x1002
+		print('WARN: sbc instruction still incorrect')
+
+	def test_sec(self):
+		initCycles = self.cpu.cycles
+		self.cpu.C = 0
+		self.cpu.execute(*self.cpu.instructions[0x38])
+		assert self.cpu.C
+		assert self.cpu.cycles == initCycles + 2
+
+	def test_sed(self):
+		initCycles = self.cpu.cycles
+		self.cpu.D = 0
+		self.cpu.execute(*self.cpu.instructions[0xf8])
+		assert self.cpu.D
+		assert self.cpu.cycles == initCycles + 2
+
+	def test_sei(self):
+		initCycles = self.cpu.cycles
+		self.cpu.I = 0
+		self.cpu.execute(*self.cpu.instructions[0x78])
+		assert self.cpu.I
+		assert self.cpu.cycles == initCycles + 2
+
+	def test_sta(self):
+		self.cpu.A = 0x5
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0x85])
+		assert self.cpu.memory.read(0x10) == 0x5
+
+	def test_stx(self):
+		self.cpu.X = 0x5
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0x86])
+		assert self.cpu.memory.read(0x10) == 0x5
+
+	def test_sty(self):
+		self.cpu.Y = 0x5
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x10)
+		self.cpu.execute(*self.cpu.instructions[0x84])
+		assert self.cpu.memory.read(0x10) == 0x5
+
+	def test_tax(self):
+		self.cpu.A = 0x5
+		self.cpu.execute(*self.cpu.instructions[0xaa])
+		assert self.cpu.X == 0x5
+		assert not self.cpu.N
+		assert not self.cpu.Z
+
+	def test_tay(self):
+		self.cpu.A = 0x5
+		self.cpu.execute(*self.cpu.instructions[0xa8])
+		assert self.cpu.Y == 0x5
+		assert not self.cpu.N
+		assert not self.cpu.Z
+
+	def test_tsx(self):
+		self.cpu.SP = 0xFF
+		self.cpu.execute(*self.cpu.instructions[0xba])
+		assert self.cpu.X == 0xFF
+		assert self.cpu.N
+		assert not self.cpu.Z
+
+	def test_txa(self):
+		self.cpu.X = 0xFF
+		self.cpu.execute(*self.cpu.instructions[0x8a])
+		assert self.cpu.A == 0xFF
+		assert self.cpu.N
+		assert not self.cpu.Z
+
+	def test_txs(self):
+		self.cpu.X = 0xFF
+		self.cpu.execute(*self.cpu.instructions[0x9a])
+		assert self.cpu.SP == 0x1FF
+
+	def test_tya(self):
+		self.cpu.Y = 0xFF
+		self.cpu.execute(*self.cpu.instructions[0x98])
+		assert self.cpu.A == 0xFF
+		assert self.cpu.N
+		assert not self.cpu.Z
+
 
 if __name__ == '__main__':
 	unittest.main()
