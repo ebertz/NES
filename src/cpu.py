@@ -42,9 +42,11 @@ class CPU:
         self.indirect = addressing.Indirect(self)
         self.indirectX = addressing.IndirectX(self)
         self.indirectY = addressing.IndirectY(self)
+        self.jumpAbsolute = addressing.JumpAbsolute(self)
+        self.NONE = addressing.NONE(self)
         #instructions stored in form [{operation}, {addressing mode}, {size}, {clock cycles}]
         self.instructions = {
-            0x00: [self.brk, self.implied, 7],
+            0x00: [self.brk, self.NONE, 7],
             0x01: [self.ora, self.indirectX, 6],
             0x05: [self.ora, self.zeroPage, 3],
             0x06: [self.asl, self.zeroPage, 3],
@@ -62,7 +64,7 @@ class CPU:
             0x1d: [self.ora, self.absoluteX, 4],
             0x1e: [self.asl, self.absoluteX, 7],
 
-            0x20: [self.jsr, self.absolute, 6],
+            0x20: [self.jsr, self.jumpAbsolute, 6],
             0x21: [self._and, self.indirectX, 6],
             0x24: [self.bit, self.zeroPage, 3],
             0x25: [self._and, self.zeroPage, 3],
@@ -89,7 +91,7 @@ class CPU:
             0x48: [self.pha, self.implied, 3],
             0x49: [self.eor, self.immediate, 2],
             0x4a: [self.lsr, self.accumulator, 2],
-            0x4c: [self.jmp, self.absolute, 3], #check pc_inc
+            0x4c: [self.jmp, self.jumpAbsolute, 3],
             0x4d: [self.eor, self.absolute, 4],
             0x4e: [self.lsr, self.absolute, 6],
             0x50: [self.bvc, self.relative, 2],
@@ -101,7 +103,7 @@ class CPU:
             0x5d: [self.eor, self.absoluteX, 4],
             0x5e: [self.lsr, self.absoluteX, 7],
 
-            0x60: [self.rts, self.implied, 6],
+            0x60: [self.rts, self.NONE, 6],
             0x61: [self.adc, self.indirectX, 6],
             0x65: [self.adc, self.zeroPage, 3],
             0x66: [self.ror, self.zeroPage, 5],
@@ -213,7 +215,7 @@ class CPU:
         self.SP += 1
         return self.memory.read(self.SP)
 
-        # NV_BDIZC
+    # NV_BDIZC
     def getProcessorStatus(self):
         return (((self.N << 7) | (self.V << 6) | (self.B << 4) | (self.D << 3)
                | (self.I << 2) | (self.Z << 1) | self.C) & 0xFF)
@@ -233,7 +235,8 @@ class CPU:
 
     def setSP(self, value):
         self.SP = 0x100 + (value & 0xFF)
-        
+
+    # execute an instruction        
     def execute(self, instruction, addressingMode, cycles):
         instruction(addressingMode)
         self.PC += addressingMode.size
@@ -288,9 +291,13 @@ class CPU:
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
         self.PC = relAddr
 
-    # bit test
+    # bit test [A&M, N=M7, V=M6]
     def bit(self, mode):
-        pass
+        value = mode.get()
+        result = value & self.A
+        self.Z = int(result == 0)
+        self.N = value >> 7 & 1
+        self.V = value >> 6 & 1
 
     # branch if minus
     def bmi(self, mode):
@@ -318,7 +325,13 @@ class CPU:
 
     # force interrupt
     def brk(self, mode):
-        self.A = 5
+        #push status flags and PC
+        self.pushStack((self.PC >> 8) & 0xFF)
+        self.pushStack(self.PC & 0xFF)
+        self.pushStack(self.getProcessorStatus())
+        irq = self.memory.read16(0xfffe)
+        self.PC = irq
+        self.B = 1;
 
     # branch if overflow clear
     def bvc(self, mode):
@@ -412,11 +425,14 @@ class CPU:
 
     # jump
     def jmp(self, mode):
-        pass
+        self.PC = mode.get()
 
     # jump subroutine
     def jsr(self, mode):
-        pass
+        pc = self.PC + 3
+        self.pushStack((pc >> 8) & 0xFF)
+        self.pushStack(pc & 0xFF)
+        self.PC = mode.get()
 
     # load accumulator [A,Z,N = M]
     def lda(self, mode):
@@ -449,7 +465,7 @@ class CPU:
     def ora(self, mode):
         result = self.A | mode.get()
         self.setZN(result)
-        self.A = result
+        self.A = result & 0xFF
 
     # push accumulator
     def pha(self, mode):
@@ -485,19 +501,20 @@ class CPU:
     # return from interrupt - pull flags then PC from stack
     def rti(self, mode):
         self.setProcessorStatus(self.popStack())
-        self.PC = self.popStack()
+        self.PC = self.popStack() + (self.popStack() << 8)
 
     # return from subroutine - pulls PC (minus one) from stack
     def rts(self, mode):
-        self.PC = self.popStack() - 1
+        self.PC = self.popStack() + (self.popStack() << 8)
 
     # subtract with carry [A,Z,C,N = A-M-(1-C)]
     def sbc(self, mode):
+        value = mode.get()
         result = self.A - mode.get() - (1-self.C)
         self.C = result > 0xFF
-        self.V = False # fix this
+        self.V = int(((self.A ^ value) & 0x80 != 0) and ((self.A ^ result) & 0x80 != 0))
         self.A = result & 0xFF
-        self.setZN(self.A)
+        self.setZN(result)
 
     # set carry flag
     def sec(self, mode):

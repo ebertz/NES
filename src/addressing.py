@@ -142,3 +142,17 @@ class Relative(AddressingMode):
 
 	def read(self, address):
 		return (self.cpu.PC + self.cpu.memory.read(address)) & 0xFFFF
+
+class JumpAbsolute(AddressingMode):
+	def __init__(self, cpu):
+		super().__init__(0, cpu, 0)
+
+	def read(self, address):
+		return self.cpu.memory.read16(address)
+
+class NONE(AddressingMode):
+	def __init__(self, cpu):
+		super().__init__(0, cpu, 0)
+
+	def read(self, address):
+	    return 0

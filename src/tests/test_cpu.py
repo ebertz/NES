@@ -189,11 +189,21 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.PC == 0x1102
 		assert self.cpu.cycles == initCycles + 4
 
-	def test_force_interrupt(self):
-		pass
+	def test_brk(self):
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0xFFFE, 0x2000)
+		self.cpu.execute(*self.cpu.instructions[0x00])
+		assert self.cpu.PC == 0x2000
 
 	def test_bit_test(self):
-		pass
+		print('TODO: test_bit')
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write(0x1001, 0x50)
+		self.cpu.memory.write(0x50, 0xFF)
+		self.cpu.execute(*self.cpu.instructions[0x24])
+		assert self.cpu.V == 1
+		assert self.cpu.N == 1
+		assert self.cpu.Z == 1
 
 	def test_clc(self):
 		initCycles = self.cpu.cycles
@@ -343,10 +353,17 @@ class InstructionTests(unittest.TestCase):
 		assert not self.cpu.N
 
 	def test_jmp(self):
-		print('TODO: test_jmp')
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.execute(*self.cpu.instructions[0x4c])
+		assert self.cpu.PC == 0x2000
 
 	def test_jsr(self):
-		print('TODO: test_jsr')
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.execute(*self.cpu.instructions[0x20])
+		assert self.cpu.popStack() + (self.cpu.popStack() << 8) == 0x1003
+		assert self.cpu.PC == 0x2000
 
 	def test_lda(self):
 		self.cpu.PC = 0x1000
@@ -381,7 +398,10 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.C
 
 	def test_nop(self):
-		pass
+		self.cpu.PC = 0x1000
+		self.cpu.execute(*self.cpu.instructions[0xea])
+		assert self.cpu.PC == 0x1001
+
 
 	def test_ora(self):
 		self.cpu.A = 0b01010101
@@ -434,23 +454,35 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.C == 1
 
 	def test_rti(self):
-		print('TODO: test_rti')
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0xFFFE, 0x2000)
+		self.cpu.setProcessorStatus(0x0F)
+		self.cpu.execute(*self.cpu.instructions[0x00])
+		assert self.cpu.PC == 0x2000
+		self.cpu.execute(*self.cpu.instructions[0x40])
+		assert self.cpu.PC == 0x1001
+		assert self.cpu.getProcessorStatus() == 0x0F
+
 
 	def test_rts(self):
-		print('TODO: test_rts')
+		self.cpu.PC = 0x1000
+		self.cpu.memory.write16(0x1001, 0x2000)
+		self.cpu.execute(*self.cpu.instructions[0x20])
+		self.cpu.execute(*self.cpu.instructions[0x60])
+		assert self.cpu.PC == 0x1003
+
 
 	def test_sbc(self):
 		self.cpu.C = 1
-		self.cpu.A = 0xFF
+		self.cpu.A = 0x7F
 		self.cpu.PC = 0x1000
-		self.cpu.memory.write(0x1001, 0xF)
+		self.cpu.memory.write(0x1001, 0x8A)
 		self.cpu.execute(*self.cpu.instructions[0xe9])
-		assert self.cpu.A == 0xF0
 		assert self.cpu.C == 0
 		assert self.cpu.N == 1
 		assert self.cpu.Z == 0
+		assert self.cpu.V == 1
 		assert self.cpu.PC == 0x1002
-		print('WARN: sbc instruction still incorrect')
 
 	def test_sec(self):
 		initCycles = self.cpu.cycles
