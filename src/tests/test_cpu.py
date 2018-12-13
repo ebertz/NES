@@ -610,6 +610,13 @@ class InstructionTests(unittest.TestCase):
 		assert self.cpu.N
 		assert not self.cpu.Z
 
+class ROMTests(unittest.TestCase):
+	def testROM(self):
+		cpu = CPU()
+		cpu.PC = 0xc000
+		for x in range(1000):
+			cpu.fetch()
+		cpu.logFile.close()
 
 if __name__ == '__main__':
 	unittest.main()

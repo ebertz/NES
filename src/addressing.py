@@ -9,7 +9,7 @@ class AddressingMode:
 		self.crossPageCycles = crossPageCycles
 
 	def read(self, address):
-		return None
+		return 0
 
 	def write(self, address, value):
 		pass
@@ -23,6 +23,9 @@ class AddressingMode:
 	def getCrossPageCycles(self, address):
 		return 0
 
+	def format(self):
+		return ''
+
 class Implied(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(1, cpu, 0)
@@ -33,6 +36,9 @@ class Immediate(AddressingMode):
 
 	def read(self, address):
 		return self.cpu.memory.read(address)
+
+	def format(self):
+		return '#${:02x}'.format(self.get())
 
 class Accumulator(AddressingMode):
 	def __init__(self, cpu):
@@ -53,6 +59,9 @@ class ZeroPage(AddressingMode):
 
 	def write(self, address, value):
 		self.cpu.memory.write(self.cpu.memory.read(address) & 0xFF, value)
+
+	def format(self):
+		return '${:02x}'.format(self.cpu.memory.read(self.cpu.PC + 1))
 
 class ZeroPageX(AddressingMode):
 	def __init__(self, cpu):
@@ -84,6 +93,9 @@ class Absolute(AddressingMode):
 	def write(self, address, value):
 		self.cpu.memory.write(self.cpu.memory.read16(address), value)
 
+	def format(self):
+		return '${:04x}'.format(self.get())
+
 class AbsoluteX(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(3, cpu, 1)
@@ -99,6 +111,9 @@ class AbsoluteX(AddressingMode):
 		if (a + self.cpu.X) >> 8 != a >> 8:
 			return 1
 		return 0
+
+	def format(self):
+		return '${:04x}'.format(self.get())
 
 class AbsoluteY(AddressingMode):
 	def __init__(self, cpu):
@@ -116,6 +131,9 @@ class AbsoluteY(AddressingMode):
 			return 1
 		return 0
 
+	def format(self):
+		return '${:04x}'.format(self.get())
+
 class Indirect(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(3, cpu, 0)
@@ -124,7 +142,8 @@ class Indirect(AddressingMode):
 		indirect_address = self.cpu.memory.read16(address)
 		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
 
-
+	def format(self):
+		return '${:04x}'.format(self.get())
 # X is added before indirection
 class IndirectX(AddressingMode):
 	def __init__(self, cpu):
@@ -138,6 +157,8 @@ class IndirectX(AddressingMode):
 		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) + self.cpu.X)
 		self.cpu.memory.write(indirect_address, value)
 
+	def format(self):
+		return '${:04x}'.format(self.get())
 # Y is added after indirection
 class IndirectY(AddressingMode):
 	def __init__(self, cpu):
@@ -157,12 +178,18 @@ class IndirectY(AddressingMode):
 			return 1
 		return 0
 
+	def format(self):
+		return '${:04x}'.format(self.get())
+
 class Relative(AddressingMode):
 	def __init__(self, cpu):
-		super().__init__(2, cpu, 2) #TODO: check branch behavior
+		super().__init__(0, cpu, 2) #TODO: check branch behavior
 
 	def read(self, address):
-		return (self.cpu.PC + self.cpu.memory.read(address)) & 0xFFFF
+		return (self.cpu.PC + self.cpu.memory.read(address) + 2) & 0xFFFF
+	
+	def format(self):
+		return '${:04x}'.format(self.get())
 
 class JumpAbsolute(AddressingMode):
 	def __init__(self, cpu):
@@ -171,9 +198,9 @@ class JumpAbsolute(AddressingMode):
 	def read(self, address):
 		return self.cpu.memory.read16(address)
 
+	def format(self):
+		return '${:04x}'.format(self.get())
+
 class NONE(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(0, cpu, 0)
-
-	def read(self, address):
-	    return 0

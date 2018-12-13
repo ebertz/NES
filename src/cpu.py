@@ -3,14 +3,18 @@
 # http://www.6502.org/tutorials/6502opcodes.html
 import memory
 import addressing
+import rom
 
 class CPU:
 
     def __init__(self):
         self.console = None
         self.memory = memory.Memory()
+        self.memory.loadROM(rom.ROM())
         self.clock = None
         self.cycles = 0
+        self.debug = True
+        self.logFile = open('log.txt', 'w')
 
         #status flags
         self.C = 0
@@ -206,6 +210,12 @@ class CPU:
             0xfe: [self.inc, self.absoluteX, 7],
         }
 
+    def loadROM(self, filepath):
+        pass
+
+    def run(self):
+        pass
+
     #stack is located at 0x0100-0x01FF, top-down, wraps to start of stack if overflow
     def pushStack(self, value):
         self.memory.write(self.SP, value)
@@ -236,11 +246,37 @@ class CPU:
     def setSP(self, value):
         self.SP = 0x100 + (value & 0xFF)
 
+    def fetch(self):
+        opcode = self.memory.read(self.PC)
+        self.execute(*self.instructions[opcode])
+
     # execute an instruction        
     def execute(self, instruction, addressingMode, cycles):
+        if self.debug == True:
+            self.logOperation(instruction, addressingMode)
         instruction(addressingMode)
         self.PC += addressingMode.size
-        self.cycles += cycles
+        self.cycles += cycles * 3
+
+    def logOperation(self, instruction, addressingMode):
+        name = instruction.__name__
+        ops = addressingMode.size if addressingMode.size > 0 else 3 if name[0] == 'j' else 2
+        log = str("{:04x}".format(self.PC)) + ' '
+
+        for i in range(ops):
+            log += ' ' + str("{:02x}".format(self.memory.read(self.PC + i)))
+        log += ' ' * (16 - len(log))
+        log += ' ' + instruction.__name__
+        log += ' ' + addressingMode.format()
+        if name == 'stx': log += ' = {:02x}'.format(self.X)
+        if name == 'sty': log += ' = {:02x}'.format(self.Y) 
+        if name == 'sta': log += ' = {:02x}'.format(self.A) 
+
+
+        #log += ' {:04x}'.format(addressingMode.get())
+        log += ' ' * (48 - len(log))
+        log+= ' A:{:02x} X:{:02x} Y:{:02x} P:{:02x} SP:{:02x} CYC:{}\n'.format(self.A, self.X, self.Y, self.P, self.SP, self.cycles % 341)
+        self.logFile.write(log.upper())
 
     # OPERATIONS 
     # http://www.obelisk.me.uk/6502/reference.html
@@ -272,6 +308,7 @@ class CPU:
     # branch if carry clear
     def bcc(self, mode):
         if self.C:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -280,6 +317,7 @@ class CPU:
     # branch if carry set
     def bcs(self, mode):
         if not self.C:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -288,6 +326,7 @@ class CPU:
     # branch if equal
     def beq(self, mode):
         if not self.Z:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -304,6 +343,7 @@ class CPU:
     # branch if minus
     def bmi(self, mode):
         if not self.N:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -312,6 +352,7 @@ class CPU:
     # branch not equal
     def bne(self, mode):
         if self.Z:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -320,6 +361,7 @@ class CPU:
     # branch if positive
     def bpl(self, mode):
         if self.N:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -338,6 +380,7 @@ class CPU:
     # branch if overflow clear
     def bvc(self, mode):
         if self.V:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
@@ -346,6 +389,7 @@ class CPU:
     # branch if overflow set
     def bvs(self, mode):
         if not self.V:
+            self.PC += 2
             return
         relAddr = mode.get()
         self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
