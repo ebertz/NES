@@ -20,6 +20,9 @@ class AddressingMode:
 	def set(self, value):
 		return self.write(self.cpu.PC + 1, value)
 
+	def getCrossPageCycles(self, address):
+		return 0
+
 class Implied(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(1, cpu, 0)
@@ -91,6 +94,12 @@ class AbsoluteX(AddressingMode):
 	def write(self, address, value):
 		self.cpu.memory.write(self.cpu.memory.read16(address) + self.cpu.X, value)
 
+	def getCrossPageCycles(self, address):
+		a = self.cpu.memory.read16(address)
+		if (a + self.cpu.X) >> 8 != a >> 8:
+			return 1
+		return 0
+
 class AbsoluteY(AddressingMode):
 	def __init__(self, cpu):
 		super().__init__(3, cpu, 1)
@@ -100,6 +109,12 @@ class AbsoluteY(AddressingMode):
 
 	def write(self, address, value):
 		self.cpu.memory.write(self.cpu.memory.read16(address)+ self.cpu.Y, value)
+
+	def getCrossPageCycles(self, address):
+		a = self.cpu.memory.read16(address)
+		if (a + self.cpu.Y) >> 8 != a >> 8:
+			return 1
+		return 0
 
 class Indirect(AddressingMode):
 	def __init__(self, cpu):
@@ -135,6 +150,12 @@ class IndirectY(AddressingMode):
 	def write(self, address, value):
 		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) )
 		self.cpu.memory.write(indirect_address + self.cpu.Y, value)
+
+	def getCrossPageCycles(self, address):
+		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address))
+		if indirect_address >> 8 != (indirect_address + self.cpu.Y) >> 8:
+			return 1
+		return 0
 
 class Relative(AddressingMode):
 	def __init__(self, cpu):

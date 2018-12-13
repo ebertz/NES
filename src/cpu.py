@@ -253,12 +253,14 @@ class CPU:
         self.V = self.A != result
         self.C = result > 0xFF
         self.setZN(result)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # logical and [A,Z,N = A&M]
     def _and(self, mode):
         result = mode.get() & self.A
         self.setZN(result)
         self.A = result
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # arithmetic left shift [A,Z,C,N = M*2],[M,Z,C,N = M*2]
     def asl(self, mode):
@@ -371,6 +373,8 @@ class CPU:
         self.C = self.A >= operand
         diff = (self.A - operand) & 0xFF
         self.setZN(diff)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+
 
     # compare X register [Z,C,N = X-M]
     def cpx(self, mode):
@@ -406,6 +410,7 @@ class CPU:
     def eor(self, mode):
         self.A = self.A ^ mode.get()
         self.setZN(self.A)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # increment memory [M,Z,N = M+1]
     def inc(self, mode):
@@ -438,16 +443,19 @@ class CPU:
     def lda(self, mode):
         self.A = mode.get()
         self.setZN(self.A)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # load X register [X,Z,N = M]
     def ldx(self, mode):
         self.X = mode.get()
         self.setZN(self.X)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # load Y register
     def ldy(self, mode):
         self.Y = mode.get()
         self.setZN(self.Y)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # logical right shift
     def lsr(self, mode):
@@ -466,6 +474,7 @@ class CPU:
         result = self.A | mode.get()
         self.setZN(result)
         self.A = result & 0xFF
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # push accumulator
     def pha(self, mode):
@@ -515,6 +524,7 @@ class CPU:
         self.V = int(((self.A ^ value) & 0x80 != 0) and ((self.A ^ result) & 0x80 != 0))
         self.A = result & 0xFF
         self.setZN(result)
+        self.cycles += mode.getCrossPageCycles(self.PC + 1)
 
     # set carry flag
     def sec(self, mode):

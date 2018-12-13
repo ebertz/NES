@@ -131,6 +131,50 @@ class AddressingModeTests(unittest.TestCase):
 		self.cpu.accumulator.write(0, 0xFF)
 		assert self.cpu.A == 0xFF
 
+	def test_address_absolute_x_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x10FF)
+		self.cpu.memory.write(0x1100, 0x5)
+		self.cpu.X = 0x1
+		assert self.cpu.absoluteX.read(0x1000) == 0x5
+		assert self.cpu.absoluteX.getCrossPageCycles(0x1000) == 1
+
+	def test_address_absolute_x_no_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.memory.write(0x2001, 0x5)
+		self.cpu.X = 0x1
+		assert self.cpu.absoluteX.read(0x1000) == 0x5
+		assert self.cpu.absoluteX.getCrossPageCycles(0x1000) == 0
+
+	def test_address_absolute_y_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x10FF)
+		self.cpu.memory.write(0x1100, 0x5)
+		self.cpu.Y = 0x1
+		assert self.cpu.absoluteY.read(0x1000) == 0x5
+		assert self.cpu.absoluteY.getCrossPageCycles(0x1000) == 1
+
+	def test_address_absolute_y_no_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.memory.write(0x2001, 0x5)
+		self.cpu.Y = 0x1
+		assert self.cpu.absoluteY.read(0x1000) == 0x5
+		assert self.cpu.absoluteY.getCrossPageCycles(0x1000) == 0
+
+	def test_address_indirect_y_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.memory.write16(0x2000, 0x2FFF)
+		self.cpu.memory.write(0x3000, 0x5)
+		self.cpu.Y = 0x1
+		assert self.cpu.indirectY.read(0x1000) == 0x5
+		assert self.cpu.indirectY.getCrossPageCycles(0x1000) == 1
+
+	def test_address_indirect_y_no_crosspage(self):
+		self.cpu.memory.write16(0x1000, 0x2000)
+		self.cpu.memory.write16(0x2000, 0x3000)
+		self.cpu.memory.write(0x3010, 0x5)
+		self.cpu.Y = 0x10
+		assert self.cpu.indirectY.read(0x1000) == 0x5
+		assert self.cpu.indirectY.getCrossPageCycles(0x1000) == 0
+
 class InstructionTests(unittest.TestCase):
 	def setUp(self):
 		self.cpu = CPU()
