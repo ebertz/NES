@@ -9,9 +9,14 @@ class Memory:
 		return self.memory[address]
 
 	def read16(self, address):
+		if address == 0xFF:
+			return self.memory[address] + (self.memory[0] << 8)
 		return self.memory[address] + (self.memory[address + 1] << 8)
 
 	def write16(self, address, value):
+		if address == 0xFF: 
+			self.memory[address] + value & 0xFF
+			self.memory[0x00] = (value >> 8) & 0xFF
 		self.memory[address] = value & 0xFF
 		self.memory[address + 1] = (value >> 8) & 0xFF
 

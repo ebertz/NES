@@ -88,7 +88,7 @@ class CPU:
             0x3d: [self._and, self.absoluteX, 4],
             0x3e: [self.rol, self.absoluteX, 7],
 
-            0x40: [self.rti, self.implied, 6],
+            0x40: [self.rti, self.NONE, 6],
             0x41: [self.eor, self.indirectX, 6],
             0x45: [self.eor, self.zeroPage, 2],
             0x46: [self.lsr, self.zeroPage, 5],
@@ -227,7 +227,7 @@ class CPU:
 
     # NV_BDIZC
     def getProcessorStatus(self):
-        return (((self.N << 7) | (self.V << 6) | (self.B << 4) | (self.D << 3)
+        return (((self.N << 7) | (self.V << 6) | (1 << 5) | (self.B << 4) | (self.D << 3)
                | (self.I << 2) | (self.Z << 1) | self.C) & 0xFF)
 
     def setProcessorStatus(self, value):
@@ -284,9 +284,10 @@ class CPU:
     
     # add with carry [A,Z,C,N = A+M+C]
     def adc(self, mode):
-        result = mode.get() + self.A + self.C
+        value = mode.get()
+        result = value + self.A + self.C
+        self.V = ((self.A ^ value) & 0x80 == 0) and ((self.A ^ result) & 0x80 == 0x80)
         self.A = result & 0xFF
-        self.V = self.A != result
         self.C = result > 0xFF
         self.setZN(result)
         self.cycles += mode.getCrossPageCycles(self.PC + 1)
@@ -478,7 +479,7 @@ class CPU:
 
     # jump subroutine
     def jsr(self, mode):
-        pc = self.PC + 3
+        pc = self.PC + 2
         self.pushStack((pc >> 8) & 0xFF)
         self.pushStack(pc & 0xFF)
         self.PC = mode.get()
@@ -504,7 +505,8 @@ class CPU:
     # logical right shift
     def lsr(self, mode):
         operand = mode.get()
-        result = (operand >> 1) & 0b0111111
+        result = (operand >> 1) & 0b01111111
+        if operand == 0xAA: print(str(result))
         self.C = operand & 1
         self.setZN(result)
         mode.set(result)
@@ -542,13 +544,17 @@ class CPU:
         operand = mode.get()
         result = ((operand << 1) | self.C) & 0xFF
         self.C = (operand >> 7) & 1
+        self.Z = self.A == 0
+        self.N = (result >> 7) & 1
         mode.set(result)
 
     # rotate right
     def ror(self, mode):
         operand = mode.get()
         result = ((operand >> 1) | (self.C << 7)) & 0xFF
-        self.C = (operand >> 7) & 1
+        self.C = operand & 1
+        self.Z = self.A == 0
+        self.N = (result >> 7) & 1
         mode.set(result)
 
     # return from interrupt - pull flags then PC from stack
@@ -559,12 +565,13 @@ class CPU:
     # return from subroutine - pulls PC (minus one) from stack
     def rts(self, mode):
         self.PC = self.popStack() + (self.popStack() << 8)
+        self.PC += 1
 
     # subtract with carry [A,Z,C,N = A-M-(1-C)]
     def sbc(self, mode):
         value = mode.get()
         result = self.A - mode.get() - (1-self.C)
-        self.C = result > 0xFF
+        self.C = result >> 8 == 0
         self.V = int(((self.A ^ value) & 0x80 != 0) and ((self.A ^ result) & 0x80 != 0))
         self.A = result & 0xFF
         self.setZN(result)

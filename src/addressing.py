@@ -150,12 +150,12 @@ class IndirectX(AddressingMode):
 		super().__init__(2, cpu, 0)
 
 	def read(self, address):
-		indirect_address = self.cpu.memory.read16(address) + self.cpu.X
+		indirect_address = (self.cpu.memory.read(address) + self.cpu.X) % 0x100
 		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
 
 	def write(self, address, value):
-		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) + self.cpu.X)
-		self.cpu.memory.write(indirect_address, value)
+		indirect_address = (self.cpu.memory.read(address) + self.cpu.X) % 0x100
+		self.cpu.memory.write(self.cpu.memory.read16(indirect_address), value)
 
 	def format(self):
 		return '${:04x}'.format(self.get())
