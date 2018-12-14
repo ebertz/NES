@@ -19,7 +19,7 @@ class CPU:
         #status flags
         self.C = 0
         self.Z = 0
-        self.I = 0
+        self.I = 1
         self.D = 0
         self.B = 0
         self.V = 0
@@ -47,13 +47,14 @@ class CPU:
         self.indirectX = addressing.IndirectX(self)
         self.indirectY = addressing.IndirectY(self)
         self.jumpAbsolute = addressing.JumpAbsolute(self)
+        self.jumpIndirect = addressing.JumpIndirect(self)
         self.NONE = addressing.NONE(self)
         #instructions stored in form [{operation}, {addressing mode}, {size}, {clock cycles}]
         self.instructions = {
             0x00: [self.brk, self.NONE, 7],
             0x01: [self.ora, self.indirectX, 6],
             0x05: [self.ora, self.zeroPage, 3],
-            0x06: [self.asl, self.zeroPage, 3],
+            0x06: [self.asl, self.zeroPage, 5],
             0x08: [self.php, self.implied, 3],
             0x09: [self.ora, self.immediate, 2],
             0x0a: [self.asl, self.accumulator, 2],
@@ -81,7 +82,7 @@ class CPU:
             0x2e: [self.rol, self.absolute, 6],
             0x30: [self.bmi, self.relative, 2],
             0x31: [self._and, self.indirectY, 5],
-            0x35: [self._and, self.zeroPageX, 6],
+            0x35: [self._and, self.zeroPageX, 4],
             0x36: [self.rol, self.zeroPageX, 6],
             0x38: [self.sec, self.implied, 2],
             0x39: [self._and, self.absoluteY, 4],
@@ -90,7 +91,7 @@ class CPU:
 
             0x40: [self.rti, self.NONE, 6],
             0x41: [self.eor, self.indirectX, 6],
-            0x45: [self.eor, self.zeroPage, 2],
+            0x45: [self.eor, self.zeroPage, 3],
             0x46: [self.lsr, self.zeroPage, 5],
             0x48: [self.pha, self.implied, 3],
             0x49: [self.eor, self.immediate, 2],
@@ -114,7 +115,7 @@ class CPU:
             0x68: [self.pla, self.implied, 4],
             0x69: [self.adc, self.immediate, 2],
             0x6a: [self.ror, self.accumulator, 2],
-            0x6c: [self.jmp, self.indirect, 5],
+            0x6c: [self.jmp, self.jumpIndirect, 5],
             0x6d: [self.adc, self.absolute, 4],
             0x6e: [self.ror, self.absolute, 6],
             0x70: [self.bvs, self.relative, 2],
@@ -208,6 +209,47 @@ class CPU:
             0xf9: [self.sbc, self.absoluteY, 4],
             0xfd: [self.sbc, self.absoluteX, 4],
             0xfe: [self.inc, self.absoluteX, 7],
+
+            #unused/unmapped instructions
+            0x0c: [self.nop, self.absolute, 4],
+            0x80: [self.nop, self.immediate, 2],
+
+            0x04: [self.nop, self.immediate, 3],
+            0x44: [self.nop, self.immediate, 3],
+            0x64: [self.nop, self.immediate, 3],
+
+            0x14: [self.nop, self.immediate, 4],
+            0x34: [self.nop, self.immediate, 4],
+            0x54: [self.nop, self.immediate, 4],
+            0x74: [self.nop, self.immediate, 4],
+            0xd4: [self.nop, self.immediate, 4],
+            0xf4: [self.nop, self.immediate, 4],
+
+            0x1a: [self.nop, self.implied, 2],
+            0x3a: [self.nop, self.implied, 2],
+            0x5a: [self.nop, self.implied, 2],
+            0x7a: [self.nop, self.implied, 2],
+            0xDa: [self.nop, self.implied, 2],
+            0xFa: [self.nop, self.implied, 2],
+
+            0x1c: [self.nop, self.absolute, 5],
+            0x3c: [self.nop, self.absolute, 5],
+            0x5c: [self.nop, self.absolute, 5],
+            0x7c: [self.nop, self.absolute, 5],
+            0xdc: [self.nop, self.absolute, 5],
+            0xfc: [self.nop, self.absolute, 5],
+
+            0xa3: [self.lax, self.indirectX, 6],
+            0xa7: [self.lax, self.zeroPage, 3],
+            0xaf: [self.lax, self.absolute, 4],
+            0xb3: [self.lax, self.indirectY, 6],
+            0xb7: [self.lax, self.zeroPageY, 4],
+            0xbF: [self.lax, self.absoluteY, 4]
+
+
+
+
+
         }
 
     def loadROM(self, filepath):
@@ -275,7 +317,8 @@ class CPU:
 
         #log += ' {:04x}'.format(addressingMode.get())
         log += ' ' * (48 - len(log))
-        log+= ' A:{:02x} X:{:02x} Y:{:02x} P:{:02x} SP:{:02x} CYC:{}\n'.format(self.A, self.X, self.Y, self.P, self.SP, self.cycles % 341)
+        spaces = '  ' if self.cycles % 341 < 10 else (' ' if self.cycles % 341 < 100 else '')
+        log+= ' A:{:02x} X:{:02x} Y:{:02x} P:{:02x} SP:{:02x} CYC:{}{}\n'.format(self.A, self.X, self.Y, self.getProcessorStatus(), self.SP, spaces, self.cycles % 341)
         self.logFile.write(log.upper())
 
     # OPERATIONS 
@@ -312,7 +355,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # branch if carry set
@@ -321,7 +364,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # branch if equal
@@ -330,7 +373,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # bit test [A&M, N=M7, V=M6]
@@ -347,7 +390,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # branch not equal
@@ -356,7 +399,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # branch if positive
@@ -365,7 +408,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # force interrupt
@@ -384,7 +427,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # branch if overflow set
@@ -393,7 +436,7 @@ class CPU:
             self.PC += 2
             return
         relAddr = mode.get()
-        self.cycles += mode.crossPageCycles if (self.PC >> 8) != (relAddr >> 8) else 1
+        self.cycles += 3*mode.crossPageCycles if ((self.PC+2) >> 8) != (relAddr >> 8) else 3
         self.PC = relAddr
 
     # clear carry flag
@@ -418,7 +461,7 @@ class CPU:
         self.C = self.A >= operand
         diff = (self.A - operand) & 0xFF
         self.setZN(diff)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
 
     # compare X register [Z,C,N = X-M]
@@ -443,19 +486,19 @@ class CPU:
 
     # decrement X register [X,Z,N = X-1]
     def dex(self, mode):
-        self.X -= 1
+        self.X = (self.X - 1) & 0xFF
         self.setZN(self.X)
 
     # decrement Y register [Y,Z,N = Y-1]
     def dey(self, mode):
-        self.Y -= 1
+        self.Y = (self.Y - 1) & 0xFF
         self.setZN(self.Y)
 
     # exclusive or [A,Z,N = A^M]
     def eor(self, mode):
         self.A = self.A ^ mode.get()
         self.setZN(self.A)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # increment memory [M,Z,N = M+1]
     def inc(self, mode):
@@ -484,29 +527,36 @@ class CPU:
         self.pushStack(pc & 0xFF)
         self.PC = mode.get()
 
+    # *load accumulator and X [A,X,Z,N = M]
+    def lax(self, mode):
+        value = mode.get()
+        self.A = value
+        self.X = value
+        self.setZN(self.A)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
+
     # load accumulator [A,Z,N = M]
     def lda(self, mode):
         self.A = mode.get()
         self.setZN(self.A)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # load X register [X,Z,N = M]
     def ldx(self, mode):
         self.X = mode.get()
         self.setZN(self.X)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # load Y register
     def ldy(self, mode):
         self.Y = mode.get()
         self.setZN(self.Y)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # logical right shift
     def lsr(self, mode):
         operand = mode.get()
         result = (operand >> 1) & 0b01111111
-        if operand == 0xAA: print(str(result))
         self.C = operand & 1
         self.setZN(result)
         mode.set(result)
@@ -520,7 +570,7 @@ class CPU:
         result = self.A | mode.get()
         self.setZN(result)
         self.A = result & 0xFF
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # push accumulator
     def pha(self, mode):
@@ -575,7 +625,7 @@ class CPU:
         self.V = int(((self.A ^ value) & 0x80 != 0) and ((self.A ^ result) & 0x80 != 0))
         self.A = result & 0xFF
         self.setZN(result)
-        self.cycles += mode.getCrossPageCycles(self.PC + 1)
+        self.cycles += 3*mode.getCrossPageCycles(self.PC + 1)
 
     # set carry flag
     def sec(self, mode):

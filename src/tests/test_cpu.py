@@ -614,23 +614,31 @@ class ROMTests(unittest.TestCase):
 	def testROM(self):
 		cpu = CPU()
 		cpu.PC = 0xc000
-		for x in range(8000):
+		for x in range(5000):
 			try:
 				cpu.fetch()
 			except:
-				print('FAILED on instruction #' + str(x))
+				print(str(x) + ' instructions tested...')
 				break
 		cpu.logFile.close()
 
-		e = open('nestest.log.txt', 'r')
-		a = open('log.txt')
+		expectedOutput = open('nestest.log.txt', 'r')
+		actualOutput = open('log.txt')
 		line = 1
 		while True:
-			if a.readline()[0:4] != e.readline()[0:4]:
-				print('Line: ' + str(line))
+			actualLine = actualOutput.readline()
+			expectedLine = expectedOutput.readline()
+			if actualLine == '' or expectedLine == '': break
+			if actualLine[0:4] != expectedLine[0:4]:
+				print('Instruction error on line: ' + str(line))
+				break
+			index1 = actualLine.index('CYC')
+			index2 = expectedLine.index('CYC')
+			if actualLine[index1:] != expectedLine[index2:]:
+				print('Timing error on line: ' + str(line))
 				break
 			line += 1
-		a.close()
-		e.close()
+		actualOutput.close()
+		expectedOutput.close()
 if __name__ == '__main__':
 	unittest.main()

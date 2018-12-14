@@ -120,7 +120,7 @@ class AbsoluteY(AddressingMode):
 		super().__init__(3, cpu, 1)
 
 	def read(self, address):
-		return self.cpu.memory.read(self.cpu.memory.read16(address) + self.cpu.Y)
+		return self.cpu.memory.read((self.cpu.memory.read16(address) + self.cpu.Y) % 0x10000)
 
 	def write(self, address, value):
 		self.cpu.memory.write(self.cpu.memory.read16(address)+ self.cpu.Y, value)
@@ -140,7 +140,7 @@ class Indirect(AddressingMode):
 
 	def read(self, address):
 		indirect_address = self.cpu.memory.read16(address)
-		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address))
+		return self.cpu.memory.read16(indirect_address)
 
 	def format(self):
 		return '${:04x}'.format(self.get())
@@ -165,17 +165,17 @@ class IndirectY(AddressingMode):
 		super().__init__(2, cpu, 1)
 
 	def read(self, address):
-		indirect_address = self.cpu.memory.read16(address)
-		return self.cpu.memory.read(self.cpu.memory.read16(indirect_address) + self.cpu.Y)
+		indirect_address = self.cpu.memory.read(address) 
+		return self.cpu.memory.read((self.cpu.memory.read16(indirect_address) + self.cpu.Y) % 0x10000)
 
 	def write(self, address, value):
-		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address) )
-		self.cpu.memory.write(indirect_address + self.cpu.Y, value)
+		indirect_address = self.cpu.memory.read16(self.cpu.memory.read(address))
+		self.cpu.memory.write((indirect_address + self.cpu.Y) % 0x10000, value)
 
 	def getCrossPageCycles(self, address):
-		indirect_address = self.cpu.memory.read16(self.cpu.memory.read16(address))
-		if indirect_address >> 8 != (indirect_address + self.cpu.Y) >> 8:
-			return 1
+		indirect_address = self.cpu.memory.read(address)
+		if indirect_address == 0xFF: return 1
+		if self.cpu.memory.read(indirect_address) == 0xFF: return 1 
 		return 0
 
 	def format(self):
@@ -186,7 +186,9 @@ class Relative(AddressingMode):
 		super().__init__(0, cpu, 2) #TODO: check branch behavior
 
 	def read(self, address):
-		return (self.cpu.PC + self.cpu.memory.read(address) + 2) & 0xFFFF
+		offset = self.cpu.memory.read(address)
+		if offset > 0x7F: offset -= 256
+		return (self.cpu.PC + offset + 2) & 0xFFFF
 	
 	def format(self):
 		return '${:04x}'.format(self.get())
@@ -197,6 +199,21 @@ class JumpAbsolute(AddressingMode):
 
 	def read(self, address):
 		return self.cpu.memory.read16(address)
+
+	def format(self):
+		return '${:04x}'.format(self.get())
+
+class JumpIndirect(AddressingMode):
+	def __init__(self, cpu):
+		super().__init__(0, cpu, 0)
+
+	def read(self, address):
+		indirect_address = self.cpu.memory.read16(address)
+		#simulate a known CPU bug
+		if indirect_address & 0xFF == 0xFF:
+			return self.cpu.memory.read(indirect_address) + (self.cpu.memory.read(indirect_address & 0xFF00) << 8)
+
+		return self.cpu.memory.read16(indirect_address)
 
 	def format(self):
 		return '${:04x}'.format(self.get())
