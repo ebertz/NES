@@ -1,6 +1,6 @@
 class Memory:
-	def __init__(self):
-		self.memory = [0 for i in range(0x10000)]
+	def __init__(self, size):
+		self.memory = [0 for i in range(size)]
 
 	def write(self, address, value):
 		self.memory[address] = value

@@ -9,7 +9,7 @@ class CPU:
 
     def __init__(self):
         self.console = None
-        self.memory = memory.Memory()
+        self.memory = memory.Memory(0x10000)
         self.memory.loadROM(rom.ROM())
         self.clock = None
         self.cycles = 0
